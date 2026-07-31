@@ -17,11 +17,19 @@
   --gold-hi: #f7dcae;
   --gold-dim: #a8873f;
 
+  /* ערכת הלוח — נדרסת ב-body[data-board] */
   --felt: #151b23;
   --pt-light-a: #5c6773;
   --pt-light-b: #414c58;
   --pt-dark-a: #29313b;
   --pt-dark-b: #1b222b;
+  --frame-a: #29313b; --frame-b: #161b22; --frame-c: #10151b;
+  --bar-a: #12171e;   --bar-b: #1c232c;
+  --chk-w-1: #ffffff; --chk-w-2: #f3efe6; --chk-w-3: #cfc7b6; --chk-w-ring: #8d7f61;
+  --chk-b-1: #454e59; --chk-b-2: #232a33; --chk-b-3: #0c1015; --chk-b-ring: #9fb0c4;
+  --die-a: #fbfcfd;   --die-b: #dbe1e8;   --die-pip: #1b222b;
+  --die-ai-a: #2f3742; --die-ai-b: #171d25; --die-ai-pip: #e7edf4;
+  --pnum: rgba(255, 255, 255, .3);
 
   --ar: 1.6;                     /* יחס רוחב/גובה של הלוח */
   --ease: cubic-bezier(.22, .61, .36, 1);
@@ -525,7 +533,7 @@ body {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  background: linear-gradient(165deg, #29313b, #161b22 60%, #10151b);
+  background: linear-gradient(165deg, var(--frame-a), var(--frame-b) 60%, var(--frame-c));
   box-shadow:
     0 1px 0 rgba(255, 255, 255, .09) inset,
     0 30px 60px -24px rgba(0, 0, 0, .95),
@@ -566,7 +574,7 @@ body {
   text-align: center;
   font-size: clamp(6px, 1.5vmin, 11px);
   font-weight: 600;
-  color: rgba(255, 255, 255, .3);
+  color: var(--pnum);
   pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
@@ -577,7 +585,7 @@ body {
 .bar {
   position: absolute;
   top: 0; bottom: 0;
-  background: linear-gradient(90deg, #12171e, #1c232c 50%, #12171e);
+  background: linear-gradient(90deg, var(--bar-a), var(--bar-b) 50%, var(--bar-a));
   box-shadow: inset 1px 0 0 rgba(255,255,255,.05), inset -1px 0 0 rgba(255,255,255,.05);
   z-index: 2;
 }
@@ -605,14 +613,14 @@ body {
     box-shadow 180ms;
 }
 .checker.w {
-  background: radial-gradient(circle at 34% 28%, #ffffff, #f3efe6 42%, #cfc7b6 92%);
+  background: radial-gradient(circle at 34% 28%, var(--chk-w-1), var(--chk-w-2) 42%, var(--chk-w-3) 92%);
   box-shadow:
     inset 0 0 0 1px rgba(120, 105, 80, .35),
     inset 0 -3px 5px rgba(120, 100, 65, .28),
     0 3px 7px rgba(0, 0, 0, .55);
 }
 .checker.b {
-  background: radial-gradient(circle at 34% 28%, #454e59, #232a33 45%, #0c1015 92%);
+  background: radial-gradient(circle at 34% 28%, var(--chk-b-1), var(--chk-b-2) 45%, var(--chk-b-3) 92%);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, .14),
     inset 0 -3px 5px rgba(0, 0, 0, .6),
@@ -626,8 +634,8 @@ body {
   border: 1px solid currentColor;
   opacity: .3;
 }
-.checker.w::after { color: #8d7f61; }
-.checker.b::after { color: #9fb0c4; }
+.checker.w::after { color: var(--chk-w-ring); }
+.checker.b::after { color: var(--chk-b-ring); }
 
 .checker .cnt {
   position: absolute;
@@ -674,10 +682,30 @@ body {
   transform: scale(1.14);
   box-shadow: 0 14px 26px rgba(0, 0, 0, .7);
 }
-.checker.hit-flash { animation: hitflash 420ms ease-out; }
-@keyframes hitflash {
-  0%   { box-shadow: 0 0 0 0 rgba(255, 92, 92, .9); }
-  100% { box-shadow: 0 0 0 14px rgba(255, 92, 92, 0); }
+/* חייל שהוכה — עף אל הבר בקשת קצרה עם הילה אדומה */
+.checker.flying {
+  z-index: 55;
+  animation: fly 420ms var(--ease);
+  box-shadow: 0 0 0 3px rgba(255, 96, 84, .9), 0 0 22px rgba(255, 96, 84, .6), 0 8px 16px rgba(0,0,0,.6);
+}
+@keyframes fly {
+  0%   { transform: scale(1.3) rotate(-14deg); }
+  60%  { transform: scale(1.16) rotate(8deg); }
+  100% { transform: none; }
+}
+
+/* הבזק במקום הפגיעה */
+.spark {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9;
+  border: 2px solid rgba(255, 96, 84, .95);
+  animation: spark 500ms ease-out forwards;
+}
+@keyframes spark {
+  0%   { transform: scale(.5); opacity: 1; }
+  100% { transform: scale(2.1); opacity: 0; }
 }
 
 /* סמן יעד */
@@ -700,7 +728,7 @@ body {
 .die {
   position: absolute;
   border-radius: 22%;
-  background: linear-gradient(160deg, #fbfcfd, #dbe1e8);
+  background: linear-gradient(160deg, var(--die-a), var(--die-b));
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, .9),
     inset 0 -3px 5px rgba(90, 105, 120, .35),
@@ -708,7 +736,7 @@ body {
   z-index: 4;
   transition: opacity .25s, filter .25s, transform .25s var(--ease);
 }
-.die.ai { background: linear-gradient(160deg, #2f3742, #171d25); box-shadow: inset 0 1px 1px rgba(255,255,255,.16), inset 0 -3px 5px rgba(0,0,0,.6), 0 5px 12px rgba(0,0,0,.6); }
+.die.ai { background: linear-gradient(160deg, var(--die-ai-a), var(--die-ai-b)); box-shadow: inset 0 1px 1px rgba(255,255,255,.16), inset 0 -3px 5px rgba(0,0,0,.6), 0 5px 12px rgba(0,0,0,.6); }
 .die .grid {
   position: absolute;
   inset: 16%;
@@ -720,10 +748,10 @@ body {
   width: 74%;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: #1b222b;
+  background: var(--die-pip);
   visibility: hidden;
 }
-.die.ai .pip { background: #e7edf4; }
+.die.ai .pip { background: var(--die-ai-pip); }
 .die.used { opacity: .26; filter: grayscale(1); transform: scale(.78); }
 .die.throw { animation: throw 380ms var(--ease); }
 @keyframes throw {
@@ -861,6 +889,55 @@ body {
 }
 .roll-btn .roll-face::before { top: 5px; left: 5px; }
 .roll-btn .roll-face::after  { bottom: 5px; right: 5px; }
+
+/* ---------- שורת צפייה חוזרת ---------- */
+
+#replay-bar {
+  flex: none;
+  padding: 4px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.replay-info {
+  width: 100%;
+  max-width: 440px;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 13px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.replay-txt { flex: 1; min-width: 0; text-align: start; }
+#replay-desc { font-size: .82rem; font-weight: 600; }
+#replay-desc span[dir="ltr"] { unicode-bidi: isolate; color: var(--gold); }
+#replay-expl { font-size: .73rem; color: var(--text-dim); margin-top: 2px; line-height: 1.35; }
+#replay-count { flex: none; font-size: .72rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+.replay-ctl { display: flex; align-items: center; gap: 10px; }
+.rp-btn {
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: .9rem;
+  cursor: pointer;
+  transition: background .16s, transform .1s, opacity .16s;
+}
+.rp-btn:active { transform: scale(.94); }
+.rp-btn:disabled { opacity: .3; cursor: default; }
+.rp-btn.big {
+  width: 52px; height: 52px;
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold-dim));
+  color: #241a08;
+  border-color: transparent;
+  font-size: 1rem;
+}
 
 /* ---------- דירוג ---------- */
 
@@ -1094,3 +1171,49 @@ html[dir="rtl"] .toggle.on i { transform: translateX(-19px); }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* ==========================================================================
+   ערכות לוח — משנות רק את הלוח עצמו, לא את מסגרת הממשק
+   ========================================================================== */
+
+body[data-board="wood"] {
+  --felt: #c9a273;
+  --pnum: rgba(255, 240, 214, .58);
+  --pt-light-a: #f2dbb0; --pt-light-b: #dcbc85;
+  --pt-dark-a: #8d5a2b;  --pt-dark-b: #62391a;
+  --frame-a: #7a4f26; --frame-b: #4e2d13; --frame-c: #351e0c;
+  --bar-a: #4a2b13;   --bar-b: #6d4420;
+  --chk-w-1: #fffdf6; --chk-w-2: #f0e6cd; --chk-w-3: #c9b78d; --chk-w-ring: #907b45;
+  --chk-b-1: #6b5541; --chk-b-2: #392a1d; --chk-b-3: #17100a; --chk-b-ring: #c2a883;
+  --die-a: #fffdf6;   --die-b: #e3d5b6;   --die-pip: #3b2611;
+  --die-ai-a: #4a3524; --die-ai-b: #241708; --die-ai-pip: #f0e2c6;
+}
+
+body[data-board="felt"] {
+  --felt: #12351f;
+  --pt-light-a: #e8dcc0; --pt-light-b: #c9bb9a;
+  --pt-dark-a: #1f5c33;  --pt-dark-b: #123a20;
+  --frame-a: #3b2a18; --frame-b: #241809; --frame-c: #170f05;
+  --bar-a: #21170c;   --bar-b: #3a2916;
+  --chk-w-1: #fffefa; --chk-w-2: #f2ece0; --chk-w-3: #cec6b4; --chk-w-ring: #8a8069;
+  --chk-b-1: #4a2a2a; --chk-b-2: #2a1414; --chk-b-3: #120707; --chk-b-ring: #b98d8d;
+  --die-a: #fffefa;   --die-b: #ded7c6;   --die-pip: #1a2b1f;
+  --die-ai-a: #3a2020; --die-ai-b: #1b0d0d; --die-ai-pip: #f2e6e6;
+}
+
+body[data-board="ivory"] {
+  --felt: #e8e3d8;
+  --pnum: rgba(30, 26, 18, .5);
+  --pt-light-a: #f4f1e8; --pt-light-b: #ddd6c4;
+  --pt-dark-a: #a8b2bd;  --pt-dark-b: #7f8c99;
+  --frame-a: #cdc5b4; --frame-b: #a89d88; --frame-c: #8a7e69;
+  --bar-a: #b8ae9a;   --bar-b: #d6cdbb;
+  --chk-w-1: #ffffff; --chk-w-2: #f7f4ec; --chk-w-3: #d8d2c3; --chk-w-ring: #9b9282;
+  --chk-b-1: #55606c; --chk-b-2: #2f3841; --chk-b-3: #161c22; --chk-b-ring: #aebbc8;
+  --die-a: #ffffff;   --die-b: #e4e0d5;   --die-pip: #2c343d;
+  --die-ai-a: #46505b; --die-ai-b: #232a31; --die-ai-pip: #eef2f6;
+}
+
+.stat-row b.lead { color: #4ecb82; }
+.stat-row b.trail { color: #e2504c; }

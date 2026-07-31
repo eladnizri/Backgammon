@@ -51,6 +51,7 @@
         doubles: 0, borneOff: 0, barEntries: 0,
         streak: 0, bestStreak: 0,
         playMs: 0,
+        vs: {},          // שם יריב -> { w, l }
       };
     },
 
@@ -389,6 +390,8 @@
     options: [], sources: new Set(),
     selected: null,
     ratings: [], turnNumber: 0,
+    log: [],           // כל תור: { color, dice, moves, before, after, rating }
+    replay: null,      // { i } כשצופים בהקלטה
     gen: 0,            // מבטל טיימרים ישנים אחרי "משחק חדש"
     toastTimer: null,
   };
@@ -742,7 +745,7 @@
     Game.gen++;
     Game.state = initialState();
     Game.view = Game.state;
-    Game.ratings = [];
+    Game.ratings = []; Game.log = []; Game.replay = null;
     Game.turnNumber = 0;
     Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
     Game.prefix = []; Game.chunks = [];
@@ -861,7 +864,11 @@
     const bore = chain.moves.some(m => m.to === "off");
     updateButtons();
     render();
-    if (hit) Sfx.hit(); else if (bore) Sfx.off(); else Sfx.place();
+    if (hit) {
+      Sfx.hit();
+      const h = chain.moves.find(m => m.hit);
+      flashHit(h && h.to);
+    } else if (bore) Sfx.off(); else Sfx.place();
 
     if (Game.options.length === 0) {
       Game.phase = "committing";
@@ -896,9 +903,16 @@
     clearMarks();
 
     Stats.add("turns");
+    const entry = {
+      color: Game.me, dice: Game.dice.slice(), moves: Game.prefix.slice(),
+      before: Game.turnStart, after: Game.state, rating: null,
+    };
+    Game.log.push(entry);
+
     if (!noMoves) {
       const r = rateTurn(Game.turnStart, Game.me, Game.dice, Game.state);
       if (!r.noMoves) {
+        entry.rating = r;
         r.turn = Game.turnNumber;
         r.dice = Game.dice.slice();
         Game.ratings.push(r);
@@ -931,6 +945,7 @@
   /* מריץ תור של הצד השני — בין אם המחשב בחר אותו ובין אם הגיע מהרשת */
   async function playOpponentTurn(dice, moves, g, label) {
     const opp = -Game.me;
+    const before = Game.state;
     stopTimer();
     Game.phase = Game.mode === "online" ? "remote" : "ai";
     Game.dice = dice;
@@ -958,10 +973,12 @@
       Game.view = Game.state;
       Game.diceUsed.push(m.die);
       render();
-      if (m.hit) { Stats.add("hitsTaken"); Sfx.hit(); flashHit(); } else Sfx.place();
+      if (m.hit) { Stats.add("hitsTaken"); Sfx.hit(); flashHit(m.to); } else Sfx.place();
     }
     await delay(T.move);
     if (stale(g)) return;
+
+    Game.log.push({ color: opp, dice: dice.slice(), moves: moves.slice(), before, after: Game.state, rating: null });
 
     const hit = moves.some(m => m.hit);
     status(`${label} שיחק ${movesHtml(moves)}${hit ? " — הכה אותך" : ""}`);
@@ -1039,9 +1056,24 @@
     autoPlay(choice.moves, g);
   }
 
-  function flashHit() {
+  /* מדגיש את החייל שהוכה בזמן שהוא עף אל הבר, ומשאיר הבזק במקום הפגיעה */
+  function flashHit(atIdx) {
     const p = topPiece.get("bar");
-    if (p) { p.el.classList.add("hit-flash"); setTimeout(() => p.el.classList.remove("hit-flash"), 450); }
+    if (p) {
+      p.el.classList.add("flying");
+      setTimeout(() => p.el && p.el.classList.remove("flying"), T.move + 220);
+    }
+    if (atIdx == null || atIdx === "bar" || atIdx === "off") return;
+    const n = Math.abs((Game.view || Game.state).points[atIdx]) || 1;
+    const pos = slotPos(atIdx, n - 1, n);
+    const spark = document.createElement("div");
+    spark.className = "spark";
+    spark.style.left = pos.left + "%";
+    spark.style.top = pos.top + "%";
+    spark.style.width = GEO.checkerD + "%";
+    spark.style.height = dh() + "%";
+    pieceLayer.appendChild(spark);
+    setTimeout(() => spark.remove(), 520);
   }
 
   function playerRollPhase() {
@@ -1264,6 +1296,13 @@
     Stats.add("playMs", Math.max(0, Date.now() - Game.startedAt));
     if (online) Stats.add("onlineGames");
     lvl.g++;
+
+    /* מאזן אישי מול כל יריב מקוון, לפי שמו */
+    if (online && Game.oppName) {
+      const vs = Stats.d.vs || (Stats.d.vs = {});
+      const rec = vs[Game.oppName] || (vs[Game.oppName] = { w: 0, l: 0 });
+      won ? rec.w++ : rec.l++;
+    }
     if (won) {
       Stats.add("wins"); lvl.w++;
       if (online) Stats.add("onlineWins");
@@ -1282,19 +1321,254 @@
     Stats.save();
 
     won ? Sfx.win() : Sfx.lose();
+    Game.lastResult = { won, kindTxt, sum, online };
     status(won ? "ניצחת!" : `${Game.oppName} ניצח`);
+    showGameOverModal();
+  }
+
+  function showGameOverModal() {
+    const r = Game.lastResult;
+    if (!r) return;
     showModal(`
-      <h2>${won ? "ניצחת! 🎉" : `${Game.oppName} ניצח`}</h2>
-      <div class="win-kind">${kindTxt}</div>
-      ${summaryHtml(sum)}
+      <h2>${r.won ? "ניצחת! 🎉" : `${Game.oppName} ניצח`}</h2>
+      <div class="win-kind">${r.kindTxt}</div>
+      ${summaryHtml(r.sum)}
       <div class="actions">
         <button class="pill-btn wide gold" id="m-again">משחק חוזר</button>
-        <button class="pill-btn wide" id="m-home">${online ? "יציאה ללובי" : "מסך הבית"}</button>
+        <button class="pill-btn wide" id="m-home">${r.online ? "יציאה ללובי" : "מסך הבית"}</button>
+      </div>
+      <div class="actions">
+        <button class="pill-btn wide" id="m-replay">צפה במשחק</button>
+        <button class="pill-btn wide" id="m-share">שתף</button>
       </div>
       <p class="note" id="m-note" hidden></p>`);
-    $("#m-again").onclick = () => (online ? requestRematch() : newGame());
+    $("#m-again").onclick = () => (r.online ? requestRematch() : newGame());
     $("#m-home").onclick = goHome;
+    $("#m-replay").onclick = enterReplay;
+    $("#m-share").onclick = shareSummary;
   }
+
+  /* ---------- שיתוף סיכום כתמונה ----------
+     מצייר כרטיס על קנבס ומעביר אותו ל-Web Share. אם השיתוף לא נתמך,
+     התמונה יורדת כקובץ. */
+
+  const GRADE_HEX = {
+    "g-excellent": "#4ecb82", "g-verygood": "#86cf62", "g-good": "#c3d155",
+    "g-ok": "#edc752", "g-inaccurate": "#eda047", "g-mistake": "#ec7145",
+    "g-blunder": "#e2504c", "g-forced": "#8fa8c8",
+  };
+
+  function drawSummaryCard() {
+    const W = 1080, H = 1350;
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const x = cv.getContext("2d");
+    const r = Game.lastResult;
+    const sum = r.sum;
+
+    x.direction = "rtl";
+    x.textAlign = "center";
+
+    const bg = x.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#16202b");
+    bg.addColorStop(0.55, "#0b0f14");
+    bg.addColorStop(1, "#070a0d");
+    x.fillStyle = bg; x.fillRect(0, 0, W, H);
+
+    /* סמל */
+    x.fillStyle = "#121820";
+    roundRect(x, W / 2 - 66, 92, 132, 132, 34); x.fill();
+    x.strokeStyle = "rgba(227,189,119,.5)"; x.lineWidth = 4;
+    roundRect(x, W / 2 - 66, 92, 132, 132, 34); x.stroke();
+    x.fillStyle = "#5c6773";
+    tri(x, W / 2 - 34, 118, W / 2 - 6, 118, W / 2 - 20, 172);
+    x.fillStyle = "#e3bd77";
+    tri(x, W / 2 + 8, 198, W / 2 + 36, 198, W / 2 + 22, 144);
+    x.fillStyle = "#f7f3ea"; dot(x, W / 2 + 22, 126, 14);
+    x.fillStyle = "#2b333d"; dot(x, W / 2 - 20, 190, 14);
+
+    x.fillStyle = "#eef2f6";
+    x.font = "800 64px system-ui, sans-serif";
+    x.fillText(r.won ? "ניצחתי!" : "הפסדתי", W / 2, 300);
+
+    x.fillStyle = "#93a1b0";
+    x.font = "400 34px system-ui, sans-serif";
+    x.fillText(`${Profiles.active().name} מול ${Game.oppName}`, W / 2, 352);
+    x.fillText(r.kindTxt, W / 2, 400);
+
+    /* ציון כולל */
+    if (sum.count) {
+      const col = GRADE_HEX[sum.grade.cls] || "#e3bd77";
+      x.beginPath(); x.arc(W / 2, 580, 118, 0, Math.PI * 2);
+      x.fillStyle = col + "22"; x.fill();
+      x.strokeStyle = col; x.lineWidth = 9; x.stroke();
+      x.fillStyle = col;
+      x.font = "800 116px system-ui, sans-serif";
+      x.fillText(String(sum.avg), W / 2, 618);
+      x.font = "700 28px system-ui, sans-serif";
+      x.fillStyle = "#93a1b0";
+      x.fillText("ציון כולל", W / 2, 730);
+
+      /* התפלגות */
+      let y = 800;
+      const max = Math.max(...sum.dist.map(d => d.count), 1);
+      for (const d of sum.dist) {
+        const c = GRADE_HEX[d.cls] || "#888";
+        x.textAlign = "right";
+        x.fillStyle = c;
+        x.font = "700 30px system-ui, sans-serif";
+        x.fillText(d.label, W - 110, y + 8);
+
+        x.fillStyle = "rgba(255,255,255,.08)";
+        roundRect(x, 200, y - 16, 560, 24, 12); x.fill();
+        x.fillStyle = c;
+        roundRect(x, 200 + 560 * (1 - d.count / max), y - 16, 560 * (d.count / max), 24, 12); x.fill();
+
+        x.textAlign = "left";
+        x.fillStyle = "#eef2f6";
+        x.font = "700 28px system-ui, sans-serif";
+        x.fillText(String(d.count), 120, y + 8);
+        x.textAlign = "center";
+        y += 58;
+      }
+      x.fillStyle = "#93a1b0";
+      x.font = "400 28px system-ui, sans-serif";
+      x.fillText(`${sum.count} מהלכים נמדדו · ${Game.log.length} תורות`, W / 2, y + 30);
+    }
+
+    x.fillStyle = "rgba(227,189,119,.75)";
+    x.font = "700 30px system-ui, sans-serif";
+    x.fillText("שש-בש · עם מאמן אישי", W / 2, H - 60);
+    return cv;
+  }
+
+  function roundRect(x, a, b, w, h, r) {
+    x.beginPath();
+    x.moveTo(a + r, b);
+    x.arcTo(a + w, b, a + w, b + h, r);
+    x.arcTo(a + w, b + h, a, b + h, r);
+    x.arcTo(a, b + h, a, b, r);
+    x.arcTo(a, b, a + w, b, r);
+    x.closePath();
+  }
+  function tri(x, x1, y1, x2, y2, x3, y3) {
+    x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.lineTo(x3, y3); x.closePath(); x.fill();
+  }
+  function dot(x, cx, cy, r) { x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill(); }
+
+  async function shareSummary() {
+    if (!Game.lastResult) return;
+    let blob;
+    try {
+      const cv = drawSummaryCard();
+      blob = await new Promise(res => cv.toBlob(res, "image/png"));
+    } catch (_) { return; }
+    if (!blob) return;
+
+    const file = new File([blob], "shesh-besh.png", { type: "image/png" });
+    const text = Game.lastResult.sum.count
+      ? `ציון ${Game.lastResult.sum.avg} בשש-בש`
+      : "משחק שש-בש";
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text });
+        return;
+      }
+    } catch (_) { /* המשתמש ביטל או שהשיתוף נכשל — יורדים להורדה */ }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "shesh-besh.png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  /* ---------- צפייה חוזרת ----------
+     משתמשת באותו לוח ובאותו רינדור: פשוט מציבים מצב מתוך היומן
+     ומכבים את הקלט. שורת הבקרה מחליפה את המזח לזמן הצפייה. */
+
+  function enterReplay() {
+    if (!Game.log.length) return;
+    hideModal();
+    Game.replay = { i: 0, playing: false, timer: null };
+    Game.phase = "replay";
+    stopTimer();
+    updateButtons();
+    $("#replay-bar").hidden = false;
+    $("#dock").hidden = true;
+    replayGoto(0);
+  }
+
+  function exitReplay() {
+    if (Game.replay && Game.replay.timer) clearInterval(Game.replay.timer);
+    Game.replay = null;
+    $("#replay-bar").hidden = true;
+    $("#dock").hidden = false;
+    Game.phase = "over";
+    Game.view = Game.state;
+    Game.dice = [];
+    render();
+    showGameOverModal();
+  }
+
+  function replayGoto(i) {
+    const R = Game.replay;
+    if (!R) return;
+    R.i = Math.max(0, Math.min(Game.log.length - 1, i));
+    const e = Game.log[R.i];
+
+    Game.view = e.after;
+    Game.state = e.after;
+    Game.dice = e.dice.slice();
+    Game.diceWho = e.color;
+    Game.diceUsed = e.moves.map(m => m.die);
+    Game.sources = new Set();
+    Game.selected = null;
+    render();
+
+    const who = isMine(e.color) ? "אתה" : Game.oppName;
+    const r = e.rating;
+    $("#replay-count").textContent = `${R.i + 1} / ${Game.log.length}`;
+    $("#replay-desc").innerHTML =
+      `<b>${who}</b> · <span dir="ltr">${e.dice[0]}-${e.dice[1]}</span> · ` +
+      (e.moves.length ? movesHtml(e.moves) : "אין מהלך");
+    const badge = $("#replay-score");
+    if (r && !r.forced) {
+      badge.hidden = false;
+      badge.className = "score-ring " + r.grade.cls;
+      badge.textContent = r.score;
+      $("#replay-expl").textContent = r.explanation;
+      $("#replay-expl").hidden = false;
+    } else {
+      badge.hidden = true;
+      $("#replay-expl").hidden = !(r && r.forced);
+      if (r && r.forced) $("#replay-expl").textContent = "מהלך כפוי";
+    }
+    $("#replay-prev").disabled = R.i === 0;
+    $("#replay-next").disabled = R.i === Game.log.length - 1;
+  }
+
+  function replayPlay() {
+    const R = Game.replay;
+    if (!R) return;
+    if (R.playing) {
+      clearInterval(R.timer); R.playing = false;
+      $("#replay-play").textContent = "▶";
+      return;
+    }
+    R.playing = true;
+    $("#replay-play").textContent = "❚❚";
+    R.timer = setInterval(() => {
+      if (!Game.replay) return;
+      if (Game.replay.i >= Game.log.length - 1) { replayPlay(); return; }
+      replayGoto(Game.replay.i + 1);
+    }, 1100);
+  }
+
+  $("#replay-prev").onclick = () => replayGoto(Game.replay.i - 1);
+  $("#replay-next").onclick = () => replayGoto(Game.replay.i + 1);
+  $("#replay-play").onclick = replayPlay;
+  $("#replay-exit").onclick = exitReplay;
 
   /* ---------- פרישה ---------- */
 
@@ -1435,7 +1709,8 @@
     Game.level = "medium";              // המנוע עדיין מדרג, רק בלי להציג
     Game.state = initialState();
     Game.view = Game.state;
-    Game.ratings = []; Game.turnNumber = 0;
+    Game.ratings = []; Game.log = []; Game.replay = null;
+    Game.turnNumber = 0;
     Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
     Game.prefix = []; Game.chunks = [];
     Game.options = []; Game.sources = new Set(); Game.selected = null;
@@ -1452,15 +1727,18 @@
     showScreen("game");
     fitBoard();
 
+    const rec = (Stats.d.vs || {})[Game.oppName];
+    const head = rec ? ` · המאזן מולו <b>${rec.w}-${rec.l}</b>` : "";
+
     if (first === myColor) {
       Game.phase = "playerRoll";
       updateButtons(); render();
-      status("אתה פותח");
+      status("אתה פותח" + head);
       armAutoRoll();
     } else {
       Game.phase = "remote";
       updateButtons(); render();
-      status("היריב פותח — ממתין…");
+      status(`${Game.oppName} פותח${head}`);
     }
   }
 
@@ -1750,6 +2028,21 @@
         </div>`;
     }
 
+    const vs = Object.entries(d.vs || {}).sort((a, b) => (b[1].w + b[1].l) - (a[1].w + a[1].l));
+    if (vs.length) {
+      html += `
+        <div class="stat-sec">
+          <h4>מאזן מול חברים</h4>
+          <div class="stat-rows">
+            ${vs.map(([name, r]) => {
+              const cls = r.w > r.l ? "lead" : r.w < r.l ? "trail" : "";
+              return `<div class="stat-row"><span>${escapeHtml(name)}</span>` +
+                     `<b class="${cls}" dir="ltr">${r.w}-${r.l}</b></div>`;
+            }).join("")}
+          </div>
+        </div>`;
+    }
+
     html += `
       <div class="stat-sec">
         <h4>שיאים</h4>
@@ -1806,6 +2099,18 @@
 
   $("#sheet-resign").onclick = resign;
 
+  const BOARD_KEY = "shesh-besh-board";
+  function setBoardTheme(v) {
+    document.body.dataset.board = v;
+    try { localStorage.setItem(BOARD_KEY, v); } catch (_) {}
+    [...$("#board-seg").children].forEach(c => c.classList.toggle("on", c.dataset.v === v));
+  }
+  $("#board-seg").onclick = e => {
+    const b = e.target.closest("button[data-v]");
+    if (b) setBoardTheme(b.dataset.v);
+  };
+  try { setBoardTheme(localStorage.getItem(BOARD_KEY) || "night"); } catch (_) { setBoardTheme("night"); }
+
   $("#timer-seg").onclick = e => {
     const b = e.target.closest("button[data-v]");
     if (!b) return;
@@ -1860,6 +2165,14 @@
   requestAnimationFrame(() => requestAnimationFrame(fitBoard));
   window.addEventListener("load", fitBoard);
 
+  /* ---------- התקנה כאפליקציה ----------
+     נרשם רק ב-http/https; מ-file:// דפדפנים חוסמים service worker. */
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+
   /* ---------- התחלה ---------- */
   buildBoard();
   Game.state = initialState();
@@ -1871,6 +2184,7 @@
     Game, GEO, Stats, Profiles, Sfx, render, newGame, playerRoll, aiTurn, endPlayerTurn,
     updateButtons, gameOver, showStatsModal, showScreen, startGame, fitBoard,
     startTimer, stopTimer, resign, requestRematch,
+    enterReplay, exitReplay, replayGoto, drawSummaryCard, shareSummary, setBoardTheme,
   };
 
 })();
