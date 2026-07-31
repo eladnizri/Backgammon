@@ -2,68 +2,105 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>שש-בש — עם דירוג מהלכים</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0a0d11">
+<title>שש-בש — מאמן אישי</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header id="topbar">
-  <div class="top-group">
-    <button id="new-game" class="icon-btn" title="משחק חדש" aria-label="משחק חדש">
-      <span class="icon-glyph">🔄</span>
+<div id="app">
+
+  <header id="topbar">
+    <button id="menu-btn" class="ghost-btn" aria-label="תפריט">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
-  </div>
 
-  <div class="brand">שש-בש <span class="sub">מאמן אישי</span></div>
+    <div class="title">שש-בש<span class="title-sub">מאמן אישי</span></div>
 
-  <div class="top-group">
-    <label class="pill lvl-pill" title="רמת קושי">
-      <select id="level">
-        <option value="easy">קלה</option>
-        <option value="medium" selected>בינונית</option>
-        <option value="hard">קשה</option>
-      </select>
-      <span class="pill-arrow">▾</span>
-    </label>
-    <button id="avg-chip" class="icon-btn" title="לחץ לסיכום ביניים — ממוצע דירוג המהלכים">
-      <span class="icon-glyph">📊</span>
-      <span class="badge" id="avg-badge">—</span>
+    <button id="avg-chip" class="stat-chip" aria-label="סיכום מהלכים">
+      <span class="stat-num" id="avg-badge">—</span>
+      <span class="stat-cap">ציון</span>
     </button>
-  </div>
-</header>
+  </header>
 
-<main>
-  <div id="status-bar"><span id="status-text"></span></div>
+  <!-- יריב -->
+  <section class="strip" id="strip-ai">
+    <div class="who">
+      <span class="avatar b">🤖</span>
+      <span class="nm">מחשב</span>
+    </div>
+    <div class="borne" id="borne-black"></div>
+    <div class="pipbox"><b id="pip-black">167</b><span>פיפ</span></div>
+  </section>
 
-  <div id="board-wrap">
+  <section id="board-area">
     <div id="board" dir="ltr"></div>
-  </div>
+  </section>
 
-  <div id="action-bar">
-    <span class="pill pip-pill">
-      <span class="pip-label">אתה</span><b id="pip-white">167</b>
-    </span>
+  <!-- שחקן -->
+  <section class="strip" id="strip-me">
+    <div class="who">
+      <span class="avatar w">🙂</span>
+      <span class="nm">אתה</span>
+    </div>
+    <div class="borne" id="borne-white"></div>
+    <div class="pipbox"><b id="pip-white">167</b><span>פיפ</span></div>
+  </section>
 
-    <button id="roll-btn" class="fab" title="הטל קוביות" aria-label="הטל קוביות">
-      <span class="icon-glyph">🎲</span>
-    </button>
+  <footer id="dock">
+    <div id="feedback">
+      <div id="status-text"></div>
+      <div id="rating" hidden>
+        <div id="rating-score" class="score-ring">—</div>
+        <div class="rating-body">
+          <div id="rating-grade"></div>
+          <div id="rating-expl"></div>
+          <div id="rating-best"></div>
+        </div>
+      </div>
+    </div>
+    <div id="actions">
+      <button id="undo-btn" class="pill-btn" hidden>
+        <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
+        בטל
+      </button>
+      <button id="roll-btn" class="roll-btn" aria-label="הטל קוביות">
+        <span class="roll-face"></span>
+      </button>
+    </div>
+  </footer>
 
-    <span class="pill pip-pill">
-      <span class="pip-label">מחשב</span><b id="pip-black">167</b>
-    </span>
+</div>
 
-    <button id="undo-btn" class="btn" hidden>↩ בטל מהלך</button>
-    <button id="confirm-btn" class="btn confirm big" hidden>סיים תור ✓</button>
-  </div>
-</main>
+<div id="sheet-backdrop" hidden>
+  <div id="sheet">
+    <div class="grabber"></div>
+    <h3>הגדרות</h3>
 
-<div id="toast" hidden>
-  <div id="toast-score" class="score-badge">—</div>
-  <div class="toast-body">
-    <div id="toast-grade" class="toast-grade"></div>
-    <div id="toast-expl" class="toast-expl"></div>
-    <div id="toast-best" class="toast-best"></div>
+    <div class="row">
+      <span class="row-lbl">רמת קושי</span>
+      <div class="seg" id="level-seg">
+        <button data-v="easy">קלה</button>
+        <button data-v="medium" class="on">בינונית</button>
+        <button data-v="hard">קשה</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="row-lbl">צלילים</span>
+      <button class="toggle on" id="sound-toggle" role="switch" aria-checked="true"><i></i></button>
+    </div>
+
+    <div class="row">
+      <span class="row-lbl">רמזים על הלוח</span>
+      <button class="toggle on" id="hint-toggle" role="switch" aria-checked="true"><i></i></button>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="pill-btn wide" id="sheet-stats">סיכום המהלכים</button>
+      <button class="pill-btn wide gold" id="sheet-new">משחק חדש</button>
+    </div>
   </div>
 </div>
 
