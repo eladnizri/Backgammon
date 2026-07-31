@@ -15,6 +15,14 @@
 
 (function () {
 
+  /* ─────────────────────────────────────────────────────────────────────
+     קישורי תרומה. הוסיפו כאן שורה לכל אמצעי תשלום והכפתור יופיע מעצמו
+     במסך "תרומות". כל עוד הרשימה ריקה מוצג שם הסבר במקום כפתורים.
+     דוגמה:  { label: "PayPal", url: "https://paypal.me/your-name" }
+     ───────────────────────────────────────────────────────────────────── */
+  const DONATE_LINKS = [
+  ];
+
   const $ = sel => document.querySelector(sel);
   const delay = ms => new Promise(r => setTimeout(r, ms));
   const d6 = () => 1 + Math.floor(Math.random() * 6);
@@ -26,7 +34,52 @@
     aiThink: 320,   // "מחשבה" של המחשב
     aiStep: 300,    // בין מהלך למהלך של המחשב
     handoff: 620,   // מסירת התור לאחר סיום
+    autoRoll: 480,  // השהיה לפני הטלה אוטומטית
   };
+
+  const LEVEL_NAME = { easy: "רמה קלה", medium: "רמה בינונית", hard: "רמה קשה" };
+
+  /* ---------- סטטיסטיקה מצטברת (נשמרת בדפדפן) ---------- */
+  const Stats = {
+    KEY: "shesh-besh-stats-v1",
+    d: null,
+
+    blank() {
+      return {
+        games: 0, wins: 0, losses: 0,
+        winKind: { 1: 0, 2: 0, 3: 0 },      // רגיל / מארס / מארס טורקי
+        lossKind: { 1: 0, 2: 0, 3: 0 },
+        byLevel: { easy: { g: 0, w: 0 }, medium: { g: 0, w: 0 }, hard: { g: 0, w: 0 } },
+        turns: 0, rated: 0, forced: 0, scoreSum: 0,
+        dist: {},
+        bestGame: null, worstGame: null,
+        hitsMade: 0, hitsTaken: 0,
+        doubles: 0, borneOff: 0, barEntries: 0,
+        streak: 0, bestStreak: 0,
+        playMs: 0,
+      };
+    },
+
+    load() {
+      try {
+        const raw = localStorage.getItem(this.KEY);
+        if (raw) this.d = Object.assign(this.blank(), JSON.parse(raw));
+      } catch (_) { /* אחסון חסום — ממשיכים בזיכרון בלבד */ }
+      if (!this.d) this.d = this.blank();
+      return this.d;
+    },
+    save() {
+      try { localStorage.setItem(this.KEY, JSON.stringify(this.d)); } catch (_) {}
+    },
+    add(key, n = 1) { this.d[key] = (this.d[key] || 0) + n; },
+    reset() { this.d = this.blank(); this.save(); },
+
+    /* נגזרות */
+    winRate() { return this.d.games ? Math.round(this.d.wins / this.d.games * 100) : 0; },
+    avgScore() { return this.d.rated ? Math.round(this.d.scoreSum / this.d.rated) : null; },
+    avgTurns() { return this.d.games ? Math.round(this.d.turns / this.d.games) : 0; },
+  };
+  Stats.load();
 
   /* ---------- גאומטריה (אחוזים מתוך רוחב/גובה הלוח) ---------- */
   const GEO = {
@@ -134,6 +187,9 @@
     phase: "idle",
     level: "medium",
     hints: true,
+    autoRoll: true,
+    startedAt: 0,
+    rollTimer: null,
     dice: [], diceWho: null, diceUsed: [],
     turnStart: null, turnsResult: null,
     prefix: [], chunks: [],
@@ -466,8 +522,8 @@
   const movesHtml = ms => ms.map(moveHtml).join(" · ");
 
   function updateButtons() {
-    const canRoll = Game.phase === "playerRoll";
-    rollBtn.hidden = !canRoll;
+    /* בהטלה אוטומטית הכפתור מיותר ורק מהבהב לרגע — עדיף להסתיר אותו */
+    rollBtn.hidden = !(Game.phase === "playerRoll") || Game.autoRoll;
     undoBtn.hidden = !(Game.phase === "playerMove" && Game.prefix.length > 0 && Game.options.length > 0);
   }
 
@@ -484,11 +540,14 @@
     Game.options = []; Game.sources = new Set();
     Game.selected = null;
     Game.phase = "playerRoll";
+    Game.startedAt = Date.now();
+    clearTimeout(Game.rollTimer);
     hideToast(); hideModal(); hideSheet();
     updateAvgChip();
     updateButtons();
     render();
-    status("תורך לפתוח — <b>הטל קוביות</b>");
+    status(Game.autoRoll ? "מתחילים" : "תורך לפתוח — <b>הטל קוביות</b>");
+    armAutoRoll();
   }
 
   /* כל טיימר בודק שהדור לא התחלף (למשל אחרי "משחק חדש") */
@@ -503,6 +562,7 @@
     Sfx.roll();
 
     const dice = [d6(), d6()];
+    if (dice[0] === dice[1]) Stats.add("doubles");
     Game.dice = dice;
     Game.diceWho = WHITE;
     Game.prefix = [];
@@ -570,6 +630,9 @@
   }
 
   function commitMove(m) {
+    if (m.hit) Stats.add("hitsMade");
+    if (m.to === "off") Stats.add("borneOff");
+    if (m.from === "bar") Stats.add("barEntries");
     Game.view = applyMove(Game.view, WHITE, m).state;
     Game.prefix.push(m);
     refreshOptions();
@@ -617,16 +680,25 @@
     updateButtons();
     clearMarks();
 
+    Stats.add("turns");
     if (!noMoves) {
       const r = rateTurn(Game.turnStart, WHITE, Game.dice, Game.state);
       if (!r.noMoves) {
         r.turn = Game.turnNumber;
         r.dice = Game.dice.slice();
         Game.ratings.push(r);
+        if (r.forced) {
+          Stats.add("forced");
+        } else {
+          Stats.add("rated");
+          Stats.add("scoreSum", r.score);
+          Stats.d.dist[r.grade.cls] = (Stats.d.dist[r.grade.cls] || 0) + 1;
+        }
         showToast(r);
         updateAvgChip();
       }
     }
+    Stats.save();
     render();
 
     if (winner(Game.state) === WHITE) return gameOver(WHITE);
@@ -664,7 +736,7 @@
       Game.view = Game.state;
       Game.diceUsed.push(m.die);
       render();
-      if (m.hit) { Sfx.hit(); flashHit(); } else Sfx.place();
+      if (m.hit) { Stats.add("hitsTaken"); Sfx.hit(); flashHit(); } else Sfx.place();
     }
     await delay(T.move);
     if (stale(g)) return;
@@ -685,7 +757,18 @@
     Game.selected = null;
     updateButtons();
     render();
-    status("תורך — <b>הטל קוביות</b>");
+    status(Game.autoRoll ? "תורך" : "תורך — <b>הטל קוביות</b>");
+    armAutoRoll();
+  }
+
+  /* מטיל לבד אחרי רגע קצר, כדי שהמעבר בין התורות יישאר קריא */
+  function armAutoRoll() {
+    clearTimeout(Game.rollTimer);
+    if (!Game.autoRoll || Game.phase !== "playerRoll") return;
+    const g = Game.gen;
+    Game.rollTimer = setTimeout(() => {
+      if (!stale(g) && Game.phase === "playerRoll") playerRoll();
+    }, T.autoRoll);
   }
 
   /* ---------- אינטראקציה ---------- */
@@ -855,7 +938,8 @@
   function showModal(html) { $("#modal").innerHTML = html; $("#modal-backdrop").hidden = false; }
   function hideModal() { $("#modal-backdrop").hidden = true; }
 
-  function showStats() {
+  /* סיכום המשחק הנוכחי (להבדיל ממסך הסטטיסטיקות המצטברות) */
+  function showStatsModal() {
     hideSheet(); hideToast();
     const sum = summarizeRatings(Game.ratings);
     showModal(`<h2>סיכום ביניים</h2>${summaryHtml(sum)}
@@ -866,13 +950,37 @@
   function gameOver(winColor) {
     Game.phase = "over";
     Game.dice = [];
+    clearTimeout(Game.rollTimer);
     updateButtons();
     hideToast();
     render();
     const kind = winKind(Game.state, winColor);
     const kindTxt = { 1: "ניצחון רגיל", 2: "מארס — ניצחון כפול", 3: "מארס טורקי — ניצחון משולש" }[kind];
     const sum = summarizeRatings(Game.ratings);
-    winColor === WHITE ? Sfx.win() : Sfx.lose();
+
+    /* רישום התוצאה לסטטיסטיקה המצטברת */
+    const won = winColor === WHITE;
+    const lvl = Stats.d.byLevel[Game.level] || (Stats.d.byLevel[Game.level] = { g: 0, w: 0 });
+    Stats.add("games");
+    Stats.add("playMs", Math.max(0, Date.now() - Game.startedAt));
+    lvl.g++;
+    if (won) {
+      Stats.add("wins"); lvl.w++;
+      Stats.d.winKind[kind] = (Stats.d.winKind[kind] || 0) + 1;
+      Stats.d.streak = Math.max(0, Stats.d.streak) + 1;
+      Stats.d.bestStreak = Math.max(Stats.d.bestStreak, Stats.d.streak);
+    } else {
+      Stats.add("losses");
+      Stats.d.lossKind[kind] = (Stats.d.lossKind[kind] || 0) + 1;
+      Stats.d.streak = 0;
+    }
+    if (sum.count) {
+      if (Stats.d.bestGame == null || sum.avg > Stats.d.bestGame) Stats.d.bestGame = sum.avg;
+      if (Stats.d.worstGame == null || sum.avg < Stats.d.worstGame) Stats.d.worstGame = sum.avg;
+    }
+    Stats.save();
+
+    won ? Sfx.win() : Sfx.lose();
     status(winColor === WHITE ? "ניצחת!" : "המחשב ניצח");
     showModal(`
       <h2>${winColor === WHITE ? "ניצחת! 🎉" : "המחשב ניצח"}</h2>
@@ -886,6 +994,204 @@
     $("#m-close").onclick = hideModal;
   }
 
+  /* ---------- ניווט בין מסכים ---------- */
+
+  const SCREENS = ["home", "game", "stats", "donate"];
+  function showScreen(name) {
+    SCREENS.forEach(s => $("#screen-" + s).classList.toggle("on", s === name));
+    if (name === "home") renderHomeQuick();
+    if (name === "stats") renderStatsScreen();
+    if (name === "donate") renderDonateScreen();
+    if (name === "game") fitBoard();
+  }
+
+  /* עוזב את המשחק הנוכחי: מבטל טיימרים תלויים כדי שהמחשב לא ימשיך לשחק ברקע */
+  function goHome() {
+    Game.gen++;
+    clearTimeout(Game.rollTimer);
+    Game.phase = "idle";
+    hideSheet(); hideModal(); hideToast();
+    showScreen("home");
+  }
+
+  function startGame(level) {
+    Game.level = level;
+    syncLevelUi(level);
+    $("#level-backdrop").hidden = true;
+    showScreen("game");
+    newGame();
+  }
+
+  function syncLevelUi(level) {
+    [...$("#level-seg").children].forEach(c => c.classList.toggle("on", c.dataset.v === level));
+    $("#title-level").textContent = LEVEL_NAME[level] || "מאמן אישי";
+  }
+
+  /* ---------- מסך הבית ---------- */
+
+  function renderHomeQuick() {
+    const d = Stats.d;
+    const avg = Stats.avgScore();
+    $("#home-quick").innerHTML = `
+      <div class="q"><b>${d.games}</b><span>משחקים</span></div>
+      <div class="q"><b>${Stats.winRate()}%</b><span>ניצחונות</span></div>
+      <div class="q"><b>${avg == null ? "—" : avg}</b><span>ציון ממוצע</span></div>`;
+  }
+
+  $("#btn-play").onclick = () => { $("#level-backdrop").hidden = false; };
+  $("#btn-stats").onclick = () => showScreen("stats");
+  $("#btn-donate").onclick = () => showScreen("donate");
+
+  $("#level-backdrop").onclick = e => { if (e.target.id === "level-backdrop") $("#level-backdrop").hidden = true; };
+  $("#lvl-cards").onclick = e => {
+    const b = e.target.closest(".lvl-card");
+    if (b) startGame(b.dataset.v);
+  };
+
+  document.querySelectorAll("[data-home]").forEach(b => b.onclick = () => showScreen("home"));
+
+  /* ---------- מסך הסטטיסטיקות ---------- */
+
+  const GRADE_LABELS = [
+    ["g-excellent", "מצוין"], ["g-verygood", "טוב מאוד"], ["g-good", "טוב"],
+    ["g-ok", "סביר"], ["g-inaccurate", "לא מדויק"], ["g-mistake", "טעות"],
+    ["g-blunder", "טעות חמורה"],
+  ];
+
+  function fmtDuration(ms) {
+    const min = Math.round(ms / 60000);
+    if (min < 60) return min + " דק׳";
+    return Math.floor(min / 60) + " שע׳ " + (min % 60) + " דק׳";
+  }
+
+  function card(v, label, gold) {
+    return `<div class="stat-card"><b${gold ? ' class="gold"' : ""}>${v}</b><span>${label}</span></div>`;
+  }
+  function row(label, v) {
+    return `<div class="stat-row"><span>${label}</span><b>${v}</b></div>`;
+  }
+
+  function renderStatsScreen() {
+    const d = Stats.d;
+    const host = $("#stats-body");
+    if (!d.games && !d.rated) {
+      host.innerHTML = `<p class="stat-empty">עוד לא שיחקת משחק.<br>הסטטיסטיקות ייאספו מעצמן תוך כדי משחק.</p>`;
+      return;
+    }
+    const avg = Stats.avgScore();
+    const totalRatedMoves = d.rated + d.forced;
+
+    let html = `
+      <div class="stat-sec">
+        <h4>סיכום</h4>
+        <div class="stat-grid">
+          ${card(d.games, "משחקים")}
+          ${card(Stats.winRate() + "%", "אחוז ניצחון", true)}
+          ${card(avg == null ? "—" : avg, "ציון ממוצע", true)}
+          ${card(d.wins, "ניצחונות")}
+          ${card(d.losses, "הפסדים")}
+          ${card(d.streak, "רצף נוכחי")}
+        </div>
+      </div>
+
+      <div class="stat-sec">
+        <h4>תוצאות</h4>
+        <div class="stat-rows">
+          ${row("ניצחון רגיל", d.winKind[1] || 0)}
+          ${row("מארס (כפול)", d.winKind[2] || 0)}
+          ${row("מארס טורקי (משולש)", d.winKind[3] || 0)}
+          ${row("הפסד רגיל", d.lossKind[1] || 0)}
+          ${row("הפסד במארס", d.lossKind[2] || 0)}
+          ${row("הפסד במארס טורקי", d.lossKind[3] || 0)}
+        </div>
+      </div>
+
+      <div class="stat-sec">
+        <h4>לפי רמת קושי</h4>
+        <div class="stat-rows">
+          ${["easy", "medium", "hard"].map(k => {
+            const l = d.byLevel[k] || { g: 0, w: 0 };
+            const pct = l.g ? Math.round(l.w / l.g * 100) : 0;
+            return row(LEVEL_NAME[k], `${l.w}/${l.g}` + (l.g ? ` · ${pct}%` : ""));
+          }).join("")}
+        </div>
+      </div>`;
+
+    if (d.rated) {
+      const max = Math.max(...GRADE_LABELS.map(([c]) => d.dist[c] || 0), 1);
+      html += `
+        <div class="stat-sec">
+          <h4>איכות המהלכים</h4>
+          <div class="stat-rows">
+            ${GRADE_LABELS.map(([cls, label]) => {
+              const n = d.dist[cls] || 0;
+              return `<div class="qbar ${cls}">
+                <span class="lbl">${label}</span>
+                <span class="track"><span class="fill" style="width:${n / max * 100}%"></span></span>
+                <span class="val">${n}</span>
+              </div>`;
+            }).join("")}
+          </div>
+        </div>`;
+    }
+
+    html += `
+      <div class="stat-sec">
+        <h4>שיאים</h4>
+        <div class="stat-grid">
+          ${card(d.bestGame == null ? "—" : d.bestGame, "ציון הכי גבוה", true)}
+          ${card(d.bestStreak, "רצף ניצחונות")}
+          ${card(d.borneOff, "חיילים שהורדת")}
+        </div>
+      </div>
+
+      <div class="stat-sec">
+        <h4>מהלכים</h4>
+        <div class="stat-rows">
+          ${row("סה״כ תורות", d.turns)}
+          ${row("מהלכים שנמדדו", d.rated)}
+          ${row("מהלכים כפויים", d.forced)}
+          ${row("ממוצע תורות למשחק", Stats.avgTurns())}
+          ${row("הכאות שביצעת", d.hitsMade)}
+          ${row("הכאות שספגת", d.hitsTaken)}
+          ${row("כניסות מהבר", d.barEntries)}
+          ${row("דאבלים שיצאו לך", d.doubles)}
+          ${row("זמן משחק מצטבר", fmtDuration(d.playMs))}
+        </div>
+      </div>
+
+      <button class="pill-btn wide" id="stats-reset">איפוס הסטטיסטיקות</button>`;
+
+    host.innerHTML = html;
+    $("#stats-reset").onclick = () => {
+      if (confirm("לאפס את כל הסטטיסטיקות? הפעולה אינה הפיכה.")) {
+        Stats.reset();
+        renderStatsScreen();
+      }
+    };
+  }
+
+  /* ---------- מסך התרומות ---------- */
+
+  function renderDonateScreen() {
+    const links = DONATE_LINKS.filter(l => l && l.url && l.label);
+    $("#donate-body").innerHTML = `
+      <div class="donate-hero">
+        <svg class="logo-lg"><use href="#ico-logo"/></svg>
+        <h3>תודה שאתם משחקים</h3>
+        <p>המשחק חינמי לגמרי, בלי פרסומות ובלי מעקב.
+           אם הוא עשה לכם את היום, אפשר לתמוך בפיתוח.</p>
+      </div>
+      ${links.length ? `<div class="donate-list">${links.map(l =>
+          `<a class="home-btn" href="${l.url}" target="_blank" rel="noopener noreferrer">${l.label}</a>`
+        ).join("")}</div>`
+      : `<div class="donate-note">
+           עדיין לא הוגדרו אמצעי תרומה. כדי להוסיף, פתחו את <code>js/app.js</code>
+           והוסיפו שורה ל-<code>DONATE_LINKS</code> שבראש הקובץ, למשל:<br><br>
+           <code dir="ltr">{ label: "PayPal", url: "https://paypal.me/…" }</code>
+         </div>`}`;
+  }
+
   /* ---------- גיליון הגדרות ---------- */
 
   function showSheet() { $("#sheet-backdrop").hidden = false; }
@@ -893,15 +1199,24 @@
 
   $("#menu-btn").onclick = showSheet;
   $("#sheet-backdrop").onclick = e => { if (e.target.id === "sheet-backdrop") hideSheet(); };
-  $("#sheet-new").onclick = newGame;
-  $("#sheet-stats").onclick = showStats;
-  $("#avg-chip").onclick = showStats;
+  $("#sheet-new").onclick = () => { hideSheet(); newGame(); };
+  $("#sheet-home").onclick = goHome;
+  $("#avg-chip").onclick = showStatsModal;
 
   $("#level-seg").onclick = e => {
     const b = e.target.closest("button[data-v]");
     if (!b) return;
     Game.level = b.dataset.v;
-    [...e.currentTarget.children].forEach(c => c.classList.toggle("on", c === b));
+    syncLevelUi(b.dataset.v);
+  };
+
+  $("#auto-toggle").onclick = e => {
+    const t = e.currentTarget;
+    Game.autoRoll = !Game.autoRoll;
+    t.classList.toggle("on", Game.autoRoll);
+    t.setAttribute("aria-checked", String(Game.autoRoll));
+    updateButtons();
+    armAutoRoll();
   };
 
   $("#sound-toggle").onclick = e => {
@@ -940,9 +1255,14 @@
 
   /* ---------- התחלה ---------- */
   buildBoard();
-  fitBoard();
-  newGame();
+  Game.state = initialState();
+  Game.view = Game.state;
+  render();
+  showScreen("home");
 
-  window.__bg = { Game, GEO, render, newGame, playerRoll, aiTurn, endPlayerTurn, updateButtons, gameOver, showStats };
+  window.__bg = {
+    Game, GEO, Stats, render, newGame, playerRoll, aiTurn, endPlayerTurn,
+    updateButtons, gameOver, showStatsModal, showScreen, startGame, fitBoard,
+  };
 
 })();
