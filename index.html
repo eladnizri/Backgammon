@@ -9,17 +9,27 @@
 <body>
 
 <header id="topbar">
-  <div class="brand">🎲 שש-בש <span class="sub">עם מאמן אישי</span></div>
-  <div class="controls">
-    <label class="lvl-label">רמת קושי
+  <div class="top-group">
+    <button id="new-game" class="icon-btn" title="משחק חדש" aria-label="משחק חדש">
+      <span class="icon-glyph">🔄</span>
+    </button>
+  </div>
+
+  <div class="brand">שש-בש <span class="sub">מאמן אישי</span></div>
+
+  <div class="top-group">
+    <label class="pill lvl-pill" title="רמת קושי">
       <select id="level">
         <option value="easy">קלה</option>
         <option value="medium" selected>בינונית</option>
         <option value="hard">קשה</option>
       </select>
+      <span class="pill-arrow">▾</span>
     </label>
-    <button id="avg-chip" class="chip" title="לחץ לסיכום ביניים">ממוצע מהלכים: —</button>
-    <button id="new-game" class="btn">משחק חדש</button>
+    <button id="avg-chip" class="icon-btn" title="לחץ לסיכום ביניים — ממוצע דירוג המהלכים">
+      <span class="icon-glyph">📊</span>
+      <span class="badge" id="avg-badge">—</span>
+    </button>
   </div>
 </header>
 
@@ -31,13 +41,20 @@
   </div>
 
   <div id="action-bar">
-    <button id="roll-btn" class="btn primary big">הטל קוביות 🎲</button>
+    <span class="pill pip-pill">
+      <span class="pip-label">אתה</span><b id="pip-white">167</b>
+    </span>
+
+    <button id="roll-btn" class="fab" title="הטל קוביות" aria-label="הטל קוביות">
+      <span class="icon-glyph">🎲</span>
+    </button>
+
+    <span class="pill pip-pill">
+      <span class="pip-label">מחשב</span><b id="pip-black">167</b>
+    </span>
+
     <button id="undo-btn" class="btn" hidden>↩ בטל מהלך</button>
     <button id="confirm-btn" class="btn confirm big" hidden>סיים תור ✓</button>
-    <span id="pip-row">
-      <span class="pip-chip">אתה: <b id="pip-white">167</b></span>
-      <span class="pip-chip">מחשב: <b id="pip-black">167</b></span>
-    </span>
   </div>
 </main>
 
