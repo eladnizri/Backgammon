@@ -45,13 +45,215 @@ body {
   overscroll-behavior: none;
 }
 
-#app {
+/* ---------- מסכים ---------- */
+
+.screen {
+  position: fixed;
+  inset: 0;
   height: 100dvh;
-  display: flex;
+  display: none;
   flex-direction: column;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   overflow: hidden;
 }
+.screen.on { display: flex; animation: screen-in .28s var(--ease); }
+@keyframes screen-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---------- מסך הבית ---------- */
+
+.home-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 28px 22px;
+  text-align: center;
+}
+
+.home-hero { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.logo-lg {
+  width: clamp(88px, 25vmin, 124px);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 14px 30px rgba(227, 189, 119, .22));
+}
+.home-title {
+  margin: 4px 0 0;
+  font-size: clamp(2rem, 8vmin, 2.7rem);
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+.home-sub { margin: 0; font-size: .88rem; color: var(--text-dim); }
+
+/* שורת נתונים מהירה */
+.home-quick {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 380px;
+}
+.home-quick .q {
+  flex: 1;
+  padding: 11px 6px;
+  border-radius: 15px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.home-quick .q b { display: block; font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.home-quick .q span { font-size: .6rem; letter-spacing: .1em; color: var(--text-dim); }
+
+.home-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 380px; }
+.home-btn {
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background .16s, transform .1s;
+}
+.home-btn:active { transform: scale(.975); background: var(--surface-2); }
+.home-btn.primary {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold-dim));
+  color: #241a08;
+  border-color: transparent;
+  box-shadow: 0 12px 28px -10px rgba(227, 189, 119, .6);
+}
+.home-btn svg { width: 19px; height: 19px; fill: currentColor; }
+.home-btn svg.stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.home-foot { margin: 0; font-size: .72rem; color: var(--text-dim); opacity: .75; }
+
+/* ---------- מסכי משנה (סטטיסטיקות, תרומות) ---------- */
+
+.sub-top {
+  flex: none;
+  height: 54px;
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  padding: 0 12px;
+}
+.ghost-spacer { display: block; }
+.ghost-btn.back svg { stroke-width: 2.2; }
+
+.sub-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 16px calc(28px + env(safe-area-inset-bottom));
+}
+
+/* כרטיסי סטטיסטיקה */
+.stat-sec { margin-bottom: 20px; }
+.stat-sec h4 {
+  margin: 0 0 9px;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--text-dim);
+}
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 13px 11px;
+  text-align: center;
+}
+.stat-card b {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.stat-card b.gold { color: var(--gold); }
+.stat-card span { font-size: .66rem; color: var(--text-dim); line-height: 1.3; display: block; margin-top: 2px; }
+
+/* שורות ערך */
+.stat-rows { background: var(--surface); border: 1px solid var(--line); border-radius: 15px; overflow: hidden; }
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  font-size: .82rem;
+}
+.stat-row + .stat-row { border-top: 1px solid var(--line); }
+.stat-row b { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* התפלגות דירוגים */
+.qbar { display: flex; align-items: center; gap: 9px; padding: 7px 14px; font-size: .78rem; }
+.qbar + .qbar { border-top: 1px solid var(--line); }
+.qbar .lbl { flex: none; width: 74px; color: var(--grade, var(--text-dim)); font-weight: 600; }
+.qbar .track { flex: 1; height: 7px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; }
+.qbar .fill { display: block; height: 100%; border-radius: 99px; background: var(--grade, #888); transition: width .5s var(--ease); }
+.qbar .val { flex: none; min-width: 30px; text-align: end; font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.stat-empty { text-align: center; color: var(--text-dim); font-size: .84rem; padding: 40px 10px; }
+
+/* ---------- תרומות ---------- */
+
+.donate-hero { text-align: center; padding: 12px 6px 20px; }
+.donate-hero .logo-lg { width: 74px; }
+.donate-hero h3 { margin: 12px 0 6px; font-size: 1.1rem; font-weight: 800; }
+.donate-hero p { margin: 0; font-size: .85rem; color: var(--text-dim); line-height: 1.55; }
+.donate-list { display: flex; flex-direction: column; gap: 10px; }
+.donate-note {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 15px;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  font-size: .78rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.donate-note code {
+  background: rgba(0,0,0,.4);
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: var(--gold);
+  font-size: .95em;
+}
+
+/* ---------- כרטיסי רמת קושי ---------- */
+
+.lvl-cards { display: flex; flex-direction: column; gap: 9px; }
+.lvl-card {
+  font: inherit;
+  text-align: start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 12px;
+  transition: background .16s, border-color .16s, transform .1s;
+}
+.lvl-card:active { transform: scale(.98); }
+.lvl-card:hover { background: var(--surface-2); border-color: rgba(227,189,119,.4); }
+.lvl-name { grid-column: 1; font-size: .98rem; font-weight: 700; color: var(--text); }
+.lvl-desc { grid-column: 1; font-size: .75rem; color: var(--text-dim); line-height: 1.4; }
+.lvl-dots { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: flex; gap: 4px; }
+.lvl-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.14); }
+.lvl-dots i.on { background: var(--gold); }
+
+.row-lbl small { display: block; font-size: .68rem; color: var(--text-dim); margin-top: 1px; }
 
 /* ---------- סרגל עליון ---------- */
 
@@ -547,7 +749,7 @@ body {
 
 /* ---------- גיליון הגדרות ---------- */
 
-#sheet-backdrop, #modal-backdrop {
+.sheet-backdrop, #modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(4, 7, 10, .68);
@@ -559,10 +761,12 @@ body {
 }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
-#sheet-backdrop { align-items: flex-end; justify-content: center; }
-#sheet {
+.sheet-backdrop { align-items: flex-end; justify-content: center; }
+.sheet {
   width: 100%;
   max-width: 460px;
+  max-height: 88dvh;
+  overflow-y: auto;
   background: linear-gradient(180deg, #19212a, #10161d);
   border: 1px solid var(--line);
   border-bottom: none;
@@ -572,7 +776,7 @@ body {
 }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 .grabber { width: 38px; height: 4px; border-radius: 99px; background: var(--surface-2); margin: 0 auto 14px; }
-#sheet h3 { margin: 0 0 14px; font-size: 1rem; font-weight: 700; }
+.sheet h3 { margin: 0 0 14px; font-size: 1rem; font-weight: 700; }
 
 .row {
   display: flex;
@@ -697,7 +901,7 @@ html[dir="rtl"] .toggle.on i { transform: translateX(-19px); }
 
 /* טלפון לרוחב — הכל עובר לפס צדדי, אחרת לא נשאר גובה ללוח */
 @media (orientation: landscape) and (max-height: 560px) {
-  #app {
+  #screen-game.on {
     display: grid;
     grid-template-columns: 1fr clamp(160px, 26vw, 230px);
     grid-template-rows: auto auto auto 1fr;

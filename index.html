@@ -5,18 +5,65 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#0a0d11">
 <title>שש-בש — מאמן אישי</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%23121820'/%3E%3Cpath d='M11 10h10l-5 18z' fill='%235c6773'/%3E%3Cpath d='M27 38h10l-5-18z' fill='%23e3bd77'/%3E%3Ccircle cx='32' cy='14' r='5' fill='%23f7f3ea'/%3E%3Ccircle cx='16' cy='34' r='5' fill='%232b333d'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%23121820'/%3E%3Cpath d='M11 10h10l-5 18z' fill='%235c6773'/%3E%3Cpath d='M27 38h10l-5-18z' fill='%23e3bd77'/%3E%3Ccircle cx='32' cy='14' r='5' fill='%23f7f3ea'/%3E%3Ccircle cx='16' cy='34' r='5' fill='%232b333d'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div id="app">
+<!-- ===== סמל האפליקציה, מוגדר פעם אחת ומשוכפל דרך <use> ===== -->
+<svg style="display:none" aria-hidden="true">
+  <symbol id="ico-logo" viewBox="0 0 48 48">
+    <rect x="1" y="1" width="46" height="46" rx="13" fill="#121820"/>
+    <rect x="1" y="1" width="46" height="46" rx="13" fill="none" stroke="#e3bd77" stroke-opacity=".5" stroke-width="1.5"/>
+    <path d="M10 9h11l-5.5 19z" fill="#5c6773"/>
+    <path d="M27 39h11l-5.5-19z" fill="#e3bd77"/>
+    <circle cx="32.5" cy="13.5" r="5.2" fill="#f7f3ea"/>
+    <circle cx="15.5" cy="34.5" r="5.2" fill="#2b333d" stroke="#7c8898" stroke-width="1.1"/>
+  </symbol>
+</svg>
+
+
+<!-- ============================ מסך הבית ============================ -->
+<div id="screen-home" class="screen on">
+  <div class="home-scroll">
+    <div class="home-hero">
+      <svg class="logo-lg"><use href="#ico-logo"/></svg>
+      <h1 class="home-title">שש-בש</h1>
+      <p class="home-sub">עם מאמן אישי שמדרג כל מהלך</p>
+    </div>
+
+    <div class="home-quick" id="home-quick"></div>
+
+    <div class="home-actions">
+      <button class="home-btn primary" id="btn-play">
+        <svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>
+        התחל משחק
+      </button>
+      <button class="home-btn" id="btn-stats">
+        <svg viewBox="0 0 24 24" class="stroke"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        סטטיסטיקות
+      </button>
+      <button class="home-btn" id="btn-donate">
+        <svg viewBox="0 0 24 24" class="stroke"><path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21.4l8.8-8.7a5 5 0 0 0 0-7.1z"/></svg>
+        תרומות
+      </button>
+    </div>
+
+    <p class="home-foot">ללא קוביית הכפלה · שלוש רמות קושי</p>
+  </div>
+</div>
+
+
+<!-- ============================ מסך המשחק ============================ -->
+<div id="screen-game" class="screen">
 
   <header id="topbar">
     <button id="menu-btn" class="ghost-btn" aria-label="תפריט">
       <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
 
-    <div class="title">שש-בש<span class="title-sub">מאמן אישי</span></div>
+    <div class="title">שש-בש<span class="title-sub" id="title-level">מאמן אישי</span></div>
 
     <button id="avg-chip" class="stat-chip" aria-label="סיכום מהלכים">
       <span class="stat-num" id="avg-badge">—</span>
@@ -73,8 +120,58 @@
 
 </div>
 
-<div id="sheet-backdrop" hidden>
-  <div id="sheet">
+
+<!-- ============================ סטטיסטיקות ============================ -->
+<div id="screen-stats" class="screen">
+  <header class="sub-top">
+    <button class="ghost-btn back" data-home aria-label="חזרה"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="title">סטטיסטיקות</div>
+    <span class="ghost-spacer"></span>
+  </header>
+  <div class="sub-scroll" id="stats-body"></div>
+</div>
+
+
+<!-- ============================== תרומות ============================== -->
+<div id="screen-donate" class="screen">
+  <header class="sub-top">
+    <button class="ghost-btn back" data-home aria-label="חזרה"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="title">תרומות</div>
+    <span class="ghost-spacer"></span>
+  </header>
+  <div class="sub-scroll" id="donate-body"></div>
+</div>
+
+
+<!-- ========================= בחירת רמת קושי ========================= -->
+<div id="level-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet">
+    <div class="grabber"></div>
+    <h3>בחר רמת קושי</h3>
+    <div class="lvl-cards" id="lvl-cards">
+      <button class="lvl-card" data-v="easy">
+        <span class="lvl-dots"><i class="on"></i><i></i><i></i></span>
+        <span class="lvl-name">קלה</span>
+        <span class="lvl-desc">המחשב משחק סביר אבל טועה — מתאים ללמידה</span>
+      </button>
+      <button class="lvl-card" data-v="medium">
+        <span class="lvl-dots"><i class="on"></i><i class="on"></i><i></i></span>
+        <span class="lvl-name">בינונית</span>
+        <span class="lvl-desc">היוריסטיקה מלאה: חשיפות, נקודות וחומות</span>
+      </button>
+      <button class="lvl-card" data-v="hard">
+        <span class="lvl-dots"><i class="on"></i><i class="on"></i><i class="on"></i></span>
+        <span class="lvl-name">קשה</span>
+        <span class="lvl-desc">חישוב קדימה של תור היריב (expectimax)</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================== הגדרות ============================== -->
+<div id="sheet-backdrop" class="sheet-backdrop" hidden>
+  <div id="sheet" class="sheet">
     <div class="grabber"></div>
     <h3>הגדרות</h3>
 
@@ -88,6 +185,11 @@
     </div>
 
     <div class="row">
+      <span class="row-lbl">הטלה אוטומטית<small>הקוביות מוטלות לבד בתורך</small></span>
+      <button class="toggle on" id="auto-toggle" role="switch" aria-checked="true"><i></i></button>
+    </div>
+
+    <div class="row">
       <span class="row-lbl">צלילים</span>
       <button class="toggle on" id="sound-toggle" role="switch" aria-checked="true"><i></i></button>
     </div>
@@ -98,7 +200,7 @@
     </div>
 
     <div class="sheet-actions">
-      <button class="pill-btn wide" id="sheet-stats">סיכום המהלכים</button>
+      <button class="pill-btn wide" id="sheet-home">מסך הבית</button>
       <button class="pill-btn wide gold" id="sheet-new">משחק חדש</button>
     </div>
   </div>
