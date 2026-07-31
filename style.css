@@ -134,7 +134,7 @@ body {
 
 .home-foot { margin: 0; font-size: .72rem; color: var(--text-dim); opacity: .75; }
 
-/* ---------- מסכי משנה (סטטיסטיקות, תרומות) ---------- */
+/* ---------- מסכי משנה (סטטיסטיקות, לובי) ---------- */
 
 .sub-top {
   flex: none;
@@ -204,30 +204,11 @@ body {
 
 .stat-empty { text-align: center; color: var(--text-dim); font-size: .84rem; padding: 40px 10px; }
 
-/* ---------- תרומות ---------- */
+/* ---------- כותרת מסך משנה ---------- */
 
-.donate-hero { text-align: center; padding: 12px 6px 20px; }
-.donate-hero .logo-lg { width: 74px; }
-.donate-hero h3 { margin: 12px 0 6px; font-size: 1.1rem; font-weight: 800; }
-.donate-hero p { margin: 0; font-size: .85rem; color: var(--text-dim); line-height: 1.55; }
-.donate-list { display: flex; flex-direction: column; gap: 10px; }
-.donate-note {
-  margin-top: 18px;
-  padding: 14px;
-  border-radius: 15px;
-  background: var(--surface);
-  border: 1px dashed var(--line);
-  font-size: .78rem;
-  color: var(--text-dim);
-  line-height: 1.6;
-}
-.donate-note code {
-  background: rgba(0,0,0,.4);
-  padding: 1px 5px;
-  border-radius: 5px;
-  color: var(--gold);
-  font-size: .95em;
-}
+.intro-hero { text-align: center; padding: 12px 6px 20px; }
+.intro-hero .logo-lg { width: 74px; }
+.intro-hero p { margin: 0; font-size: .85rem; color: var(--text-dim); line-height: 1.55; }
 
 /* ---------- לובי משחק מול חבר ---------- */
 
