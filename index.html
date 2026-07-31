@@ -29,6 +29,27 @@
 </svg>
 
 
+<!-- ===================== ברוכים הבאים (הפעלה ראשונה) ===================== -->
+<div id="screen-welcome" class="screen">
+  <div class="home-scroll">
+    <div class="home-hero">
+      <svg class="logo-lg"><use href="#ico-logo"/></svg>
+      <h1 class="home-title">ברוך הבא</h1>
+      <p class="home-sub">איך לקרוא לך? השם יופיע גם ליריב במשחק מול חבר.</p>
+    </div>
+
+    <div class="av-picker" id="av-picker"></div>
+
+    <input id="welcome-name" class="name-input" maxlength="14"
+           placeholder="השם שלך" autocomplete="nickname" aria-label="השם שלך">
+
+    <div class="home-actions">
+      <button class="home-btn primary" id="welcome-go" disabled>בוא נתחיל</button>
+    </div>
+  </div>
+</div>
+
+
 <!-- ============================ מסך הבית ============================ -->
 <div id="screen-home" class="screen on">
   <div class="home-scroll">
@@ -145,6 +166,10 @@
       </button>
       <button id="roll-btn" class="roll-btn" aria-label="הטל קוביות">
         <span class="roll-face"></span>
+      </button>
+      <button id="confirm-btn" class="pill-btn confirm" hidden>
+        סיים תור
+        <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
       </button>
     </div>
   </footer>
