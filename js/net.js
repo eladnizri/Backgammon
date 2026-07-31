@@ -21,13 +21,15 @@
    ========================================================================== */
 
 /* ─────────────────────────────────────────────────────────────────────────
-   הדביקו כאן את שני הערכים מ-Supabase: Settings → API.
-   המפתח anon נועד לשבת בצד לקוח, ולכן מותר לו להיות ב-repo ציבורי.
-   כל עוד השדות ריקים המשחק המקוון עובד בין לשוניות באותו דפדפן בלבד.
+   שני הערכים מ-Supabase: Settings → API.
+   המפתח הפומבי (sb_publishable_… או מפתח anon ישן) נועד לשבת בצד לקוח,
+   ולכן מותר לו להיות ב-repo ציבורי. את המפתח הסודי (sb_secret_… /
+   service_role) אין להכניס לכאן לעולם.
+   כשהשדות ריקים המשחק המקוון עובד בין לשוניות באותו דפדפן בלבד.
    ───────────────────────────────────────────────────────────────────────── */
 const NET_CONFIG = {
-  url: "",   // https://xxxxxxxx.supabase.co
-  key: "",   // anon public key
+  url: "https://gytxwjlicawlfdehszil.supabase.co",
+  key: "sb_publishable_w7pTF5fWOfc7zGlQS5c61Q_x6IFM0Ir",
 };
 
 const NET_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // בלי תווים מתבלבלים
@@ -92,14 +94,19 @@ class SupabaseTransport {
       this.topic = "realtime:shesh-besh-" + room;
 
       let settled = false;
+      let opened = false;
       const fail = err => { if (!settled) { settled = true; reject(err); } };
 
-      try { this.ws = new WebSocket(url); } catch (e) { return fail(e); }
+      try { this.ws = new WebSocket(url); } catch (e) { return fail(new Error("לא ניתן לפתוח חיבור")); }
 
       this.ws.onopen = () => {
-        /* self:false — לא לקבל בחזרה את מה ששלחנו */
+        opened = true;
+        /* self:false — לא לקבל בחזרה את מה ששלחנו.
+           access_token נשלח גם בגוף ההצטרפות, כפי ש-supabase-js עושה,
+           כדי שגם מפתחות מהפורמט החדש (sb_publishable_…) יזוהו. */
         this.push(this.topic, "phx_join", {
-          config: { broadcast: { self: false, ack: false } },
+          config: { broadcast: { self: false, ack: false }, private: false },
+          access_token: NET_CONFIG.key,
         });
         this.hb = setInterval(() => this.push("phoenix", "heartbeat", {}), 25000);
       };
@@ -112,7 +119,9 @@ class SupabaseTransport {
           if (m.payload && m.payload.status === "ok") {
             if (!settled) { settled = true; this.onStatus("open"); resolve(); }
           } else {
-            fail(new Error("join-refused"));
+            const why = (m.payload && m.payload.response &&
+              (m.payload.response.reason || m.payload.response.message)) || "";
+            fail(new Error("הערוץ דחה את המפתח" + (why ? ` (${why})` : "")));
           }
           return;
         }
@@ -123,14 +132,17 @@ class SupabaseTransport {
         }
       };
 
-      this.ws.onerror = () => fail(new Error("socket-error"));
-      this.ws.onclose = () => {
+      this.ws.onerror = () => fail(new Error("לא הצלחתי להגיע לשרת"));
+      this.ws.onclose = ev => {
         clearInterval(this.hb);
-        fail(new Error("socket-closed"));
+        /* אם נסגר לפני שנפתח, כמעט תמיד המפתח או הכתובת שגויים */
+        fail(new Error(opened
+          ? `החיבור נסגר (קוד ${ev && ev.code})`
+          : `נדחה על ידי השרת (קוד ${ev && ev.code}) — בדקו את הכתובת והמפתח`));
         this.onStatus("closed");
       };
 
-      setTimeout(() => fail(new Error("timeout")), 12000);
+      setTimeout(() => fail(new Error("החיבור לא נענה בזמן")), 12000);
     });
   }
 
@@ -154,10 +166,12 @@ class SupabaseTransport {
   }
 }
 
-const netConfigured = () => Boolean(NET_CONFIG.url && NET_CONFIG.key);
+/* מוצא מוצא חירום: אם Supabase לא נענה אפשר לחזור למצב המקומי בלי
+   לגעת בקוד, כדי שתמיד תהיה דרך לשחק. */
+let netForceLocal = false;
+const setForceLocal = v => { netForceLocal = Boolean(v); };
+const netConfigured = () => Boolean(NET_CONFIG.url && NET_CONFIG.key) && !netForceLocal;
 
-/* בוחר את המימוש הזמין. ברירת המחדל היא המקומי, כדי שהמשחק המקוון
-   יהיה ניתן לניסיון מיד גם לפני שהוגדר חשבון. */
 function makeTransport() {
   return netConfigured() ? new SupabaseTransport() : new LocalTransport();
 }
