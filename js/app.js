@@ -15,14 +15,6 @@
 
 (function () {
 
-  /* ─────────────────────────────────────────────────────────────────────
-     קישורי תרומה. הוסיפו כאן שורה לכל אמצעי תשלום והכפתור יופיע מעצמו
-     במסך "תרומות". כל עוד הרשימה ריקה מוצג שם הסבר במקום כפתורים.
-     דוגמה:  { label: "PayPal", url: "https://paypal.me/your-name" }
-     ───────────────────────────────────────────────────────────────────── */
-  const DONATE_LINKS = [
-  ];
-
   const $ = sel => document.querySelector(sel);
   const delay = ms => new Promise(r => setTimeout(r, ms));
   const d6 = () => 1 + Math.floor(Math.random() * 6);
@@ -1225,12 +1217,11 @@
 
   /* ---------- ניווט בין מסכים ---------- */
 
-  const SCREENS = ["home", "game", "stats", "donate", "online"];
+  const SCREENS = ["home", "game", "stats", "online"];
   function showScreen(name) {
     SCREENS.forEach(s => $("#screen-" + s).classList.toggle("on", s === name));
     if (name === "home") renderHomeQuick();
     if (name === "stats") renderStatsScreen();
-    if (name === "donate") renderDonateScreen();
     if (name === "game") fitBoard();
   }
 
@@ -1277,7 +1268,6 @@
 
   $("#btn-play").onclick = () => { $("#level-backdrop").hidden = false; };
   $("#btn-stats").onclick = () => showScreen("stats");
-  $("#btn-donate").onclick = () => showScreen("donate");
 
   $("#level-backdrop").onclick = e => { if (e.target.id === "level-backdrop") $("#level-backdrop").hidden = true; };
   $("#lvl-cards").onclick = e => {
@@ -1408,27 +1398,6 @@
         renderStatsScreen();
       }
     };
-  }
-
-  /* ---------- מסך התרומות ---------- */
-
-  function renderDonateScreen() {
-    const links = DONATE_LINKS.filter(l => l && l.url && l.label);
-    $("#donate-body").innerHTML = `
-      <div class="donate-hero">
-        <svg class="logo-lg"><use href="#ico-logo"/></svg>
-        <h3>תודה שאתם משחקים</h3>
-        <p>המשחק חינמי לגמרי, בלי פרסומות ובלי מעקב.
-           אם הוא עשה לכם את היום, אפשר לתמוך בפיתוח.</p>
-      </div>
-      ${links.length ? `<div class="donate-list">${links.map(l =>
-          `<a class="home-btn" href="${l.url}" target="_blank" rel="noopener noreferrer">${l.label}</a>`
-        ).join("")}</div>`
-      : `<div class="donate-note">
-           עדיין לא הוגדרו אמצעי תרומה. כדי להוסיף, פתחו את <code>js/app.js</code>
-           והוסיפו שורה ל-<code>DONATE_LINKS</code> שבראש הקובץ, למשל:<br><br>
-           <code dir="ltr">{ label: "PayPal", url: "https://paypal.me/…" }</code>
-         </div>`}`;
   }
 
   /* ---------- גיליון הגדרות ---------- */
