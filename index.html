@@ -7,6 +7,11 @@
 <title>שש-בש — מאמן אישי</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%23121820'/%3E%3Cpath d='M11 10h10l-5 18z' fill='%235c6773'/%3E%3Cpath d='M27 38h10l-5-18z' fill='%23e3bd77'/%3E%3Ccircle cx='32' cy='14' r='5' fill='%23f7f3ea'/%3E%3Ccircle cx='16' cy='34' r='5' fill='%232b333d'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%23121820'/%3E%3Cpath d='M11 10h10l-5 18z' fill='%235c6773'/%3E%3Cpath d='M27 38h10l-5-18z' fill='%23e3bd77'/%3E%3Ccircle cx='32' cy='14' r='5' fill='%23f7f3ea'/%3E%3Ccircle cx='16' cy='34' r='5' fill='%232b333d'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="שש-בש">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -102,6 +107,24 @@
     <div class="borne" id="borne-white"></div>
     <div class="pipbox"><b id="pip-white">167</b><span>פיפ</span></div>
   </section>
+
+  <!-- שורת בקרה לצפייה חוזרת, מחליפה את המזח -->
+  <footer id="replay-bar" hidden>
+    <div class="replay-info">
+      <div id="replay-score" class="score-ring" hidden>—</div>
+      <div class="replay-txt">
+        <div id="replay-desc"></div>
+        <div id="replay-expl" hidden></div>
+      </div>
+      <span id="replay-count"></span>
+    </div>
+    <div class="replay-ctl">
+      <button id="replay-exit" class="pill-btn">סיום</button>
+      <button id="replay-prev" class="rp-btn" aria-label="הקודם">▶</button>
+      <button id="replay-play" class="rp-btn big" aria-label="נגן">▶</button>
+      <button id="replay-next" class="rp-btn" aria-label="הבא">◀</button>
+    </div>
+  </footer>
 
   <footer id="dock">
     <div id="feedback">
@@ -238,6 +261,16 @@
     <div class="row">
       <span class="row-lbl">הטלה אוטומטית<small>הקוביות מוטלות לבד בתורך</small></span>
       <button class="toggle on" id="auto-toggle" role="switch" aria-checked="true"><i></i></button>
+    </div>
+
+    <div class="row">
+      <span class="row-lbl">ערכת לוח</span>
+      <div class="seg" id="board-seg">
+        <button data-v="night" class="on">לילה</button>
+        <button data-v="wood">עץ</button>
+        <button data-v="felt">לבד</button>
+        <button data-v="ivory">שנהב</button>
+      </div>
     </div>
 
     <div class="row">
