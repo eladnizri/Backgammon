@@ -88,6 +88,67 @@ body {
 }
 .home-sub { margin: 0; font-size: .88rem; color: var(--text-dim); }
 
+/* צ'יפ הפרופיל הפעיל */
+.who-chip {
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px 8px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  cursor: pointer;
+  transition: background .16s, transform .1s;
+}
+.who-chip:active { transform: scale(.97); background: var(--surface-2); }
+.who-av { font-size: 1.1rem; line-height: 1; }
+.who-name { font-size: .9rem; font-weight: 700; }
+.who-swap { font-size: .66rem; color: var(--gold); opacity: .85; }
+
+/* רשימת הפרופילים */
+.prof-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-top: 1px solid var(--line);
+}
+.prof-row.on .prof-name { color: var(--gold); }
+.prof-av {
+  flex: none;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  font-size: 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.prof-row.on .prof-av { border-color: var(--gold); }
+.prof-main {
+  flex: 1;
+  min-width: 0;
+  text-align: start;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.prof-name { display: block; font-size: .92rem; font-weight: 700; }
+.prof-sub { display: block; font-size: .68rem; color: var(--text-dim); margin-top: 1px; }
+.prof-ico {
+  flex: none;
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: .85rem;
+  cursor: pointer;
+}
+
 /* שורת נתונים מהירה */
 .home-quick {
   display: flex;
@@ -382,6 +443,26 @@ body {
   background: rgba(227, 189, 119, .09);
   box-shadow: 0 0 0 1px rgba(227, 189, 119, .12), 0 6px 22px -10px rgba(227, 189, 119, .5);
 }
+
+/* טיימר התור — פס שמתקצר לאורך תחתית הרצועה של מי שתורו.
+   מוקטן ב-transform ולא ברוחב, כדי לא לחתוך את זוהר מגש ההורדה. */
+.strip { position: relative; }
+.strip::after {
+  content: "";
+  position: absolute;
+  left: 10px; right: 10px;
+  bottom: 3px;
+  height: 3px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold-hi));
+  transform: scaleX(0);
+  transform-origin: right center;   /* RTL — מתרוקן מימין לשמאל */
+  transition: background .3s;
+  pointer-events: none;
+}
+.strip.timing::after { transform: scaleX(var(--t, 1)); }
+.strip.timing.urgent::after { background: linear-gradient(90deg, #b3402f, #ec7145); }
+.strip.timing.urgent { border-color: rgba(236, 113, 69, .55); }
 
 .who { display: flex; align-items: center; gap: 7px; flex: none; }
 .avatar {
@@ -731,6 +812,12 @@ body {
 .sub-scroll > .pill-btn.wide,
 #lobby-host > .pill-btn.wide,
 #lobby-join > .pill-btn.wide { display: flex; width: 100%; }
+.pill-btn.danger {
+  margin-top: 10px;
+  color: #ff9d8a;
+  border-color: rgba(226, 80, 76, .4);
+  background: rgba(226, 80, 76, .1);
+}
 .pill-btn.gold {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold-dim));
   color: #241a08;
