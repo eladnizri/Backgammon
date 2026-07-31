@@ -648,9 +648,10 @@
 
   function updateAvgChip() {
     const sum = summarizeRatings(Game.ratings);
-    $("#avg-chip").textContent = sum.count
-      ? `ממוצע מהלכים: ${sum.avg}`
-      : "ממוצע מהלכים: —";
+    $("#avg-badge").textContent = sum.count ? sum.avg : "—";
+    $("#avg-chip").title = sum.count
+      ? `ממוצע מהלכים: ${sum.avg} — לחץ לסיכום ביניים`
+      : "עוד אין מהלכים שנמדדו — לחץ לסיכום ביניים";
   }
 
   /* ---------- מודאל סיכום ---------- */
