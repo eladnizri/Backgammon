@@ -1162,6 +1162,18 @@
       $("#lobby-" + s).hidden = s !== name);
   }
 
+  /* מציג שגיאת רשת יחד עם מוצא: מעבר למצב מקומי בלי לגעת בקוד */
+  function netError(el, msg, retry) {
+    el.textContent = "";
+    el.appendChild(document.createTextNode(msg + " "));
+    if (!netConfigured()) return;
+    const b = document.createElement("button");
+    b.className = "pill-btn";
+    b.textContent = "נסה מצב מקומי";
+    b.onclick = () => { setForceLocal(true); retry(); };
+    el.appendChild(b);
+  }
+
   async function hostRoom() {
     const room = makeRoomCode();
     $("#room-code").textContent = room;
@@ -1172,7 +1184,7 @@
     try {
       await netOpen("host", room);
     } catch (e) {
-      $("#host-status").textContent = "החיבור נכשל: " + e.message;
+      netError($("#host-status"), "החיבור נכשל: " + e.message, hostRoom);
     }
   }
 
@@ -1188,7 +1200,7 @@
         if (Game.net && !Game.net.started) $("#join-status").textContent = "אין תשובה — בדקו את הקוד";
       }, 6000);
     } catch (e) {
-      $("#join-status").textContent = "החיבור נכשל: " + e.message;
+      netError($("#join-status"), "החיבור נכשל: " + e.message, joinRoom);
     }
   }
 
