@@ -229,6 +229,74 @@ body {
   font-size: .95em;
 }
 
+/* ---------- לובי משחק מול חבר ---------- */
+
+.code-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 18px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.code-cap { font-size: .74rem; letter-spacing: .08em; color: var(--text-dim); }
+#room-code {
+  font-size: 2.3rem;
+  font-weight: 800;
+  letter-spacing: .22em;
+  color: var(--gold);
+  text-indent: .22em;      /* מאזן את הרווח הנגרר מ-letter-spacing */
+  font-variant-numeric: tabular-nums;
+}
+#join-input {
+  font: inherit;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-align: center;
+  text-transform: uppercase;
+  width: 100%;
+  max-width: 260px;
+  padding: 10px 8px;
+  color: var(--gold);
+  background: rgba(0, 0, 0, .35);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  outline: none;
+}
+#join-input:focus { border-color: var(--gold); }
+#join-input::placeholder { color: rgba(255, 255, 255, .16); letter-spacing: .18em; }
+
+.lobby-status { text-align: center; font-size: .84rem; color: var(--text-dim); margin: 6px 0 14px; min-height: 20px; }
+
+.dots-wait { display: flex; gap: 7px; justify-content: center; margin-bottom: 20px; }
+.dots-wait i {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: dotpulse 1.3s ease-in-out infinite;
+}
+.dots-wait i:nth-child(2) { animation-delay: .18s; }
+.dots-wait i:nth-child(3) { animation-delay: .36s; }
+@keyframes dotpulse { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+
+/* התראת ניתוק בתוך מסך המשחק */
+#net-warn {
+  flex: none;
+  margin: 0 12px 3px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  text-align: center;
+  font-size: .78rem;
+  font-weight: 600;
+  color: #ffd9a8;
+  background: rgba(226, 128, 60, .16);
+  border: 1px solid rgba(226, 128, 60, .4);
+}
+
 /* ---------- כרטיסי רמת קושי ---------- */
 
 .lvl-cards { display: flex; flex-direction: column; gap: 9px; }
@@ -678,6 +746,10 @@ body {
 .pill-btn:active { transform: scale(.96); background: var(--surface-2); }
 .pill-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .pill-btn.wide { flex: 1; justify-content: center; padding: 13px 18px; }
+/* אותו כפתור מחוץ למכל flex צריך להימתח בעצמו */
+.sub-scroll > .pill-btn.wide,
+#lobby-host > .pill-btn.wide,
+#lobby-join > .pill-btn.wide { display: flex; width: 100%; }
 .pill-btn.gold {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold-dim));
   color: #241a08;
