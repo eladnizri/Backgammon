@@ -99,23 +99,33 @@
   /* גובה חייל, באחוזי גובה הלוח (כדי שיישאר עיגול מושלם) */
   const dh = () => GEO.checkerD * GEO.AR;
 
-  function pointX(idx) {
+  /* ---------- נקודת המבט של הצופה ----------
+     המצב עצמו תמיד קנוני (לבן נע 23→0), אבל מי שמשחק בשחור צריך לראות את
+     הבית שלו למטה-מימין בדיוק כמו היריב. לכן כל הרינדור עובר דרך אינדקס
+     "תצוגה", והקלט מתורגם בחזרה לאינדקס המודל. מול המחשב אין היפוך בכלל. */
+  const flipped = () => Game.me === BLACK;
+  const toView = i => (flipped() ? 23 - i : i);
+  const toModel = v => (flipped() ? 23 - v : v);
+  const isMine = color => color === Game.me;
+
+  function pointX(vIdx) {
     let col, baseX;
-    if (idx >= 12 && idx <= 17) { col = idx - 12; baseX = GEO.leftQuadX; }
-    else if (idx >= 18) { col = idx - 18; baseX = GEO.rightQuadX; }
-    else if (idx >= 6) { col = 11 - idx; baseX = GEO.leftQuadX; }
-    else { col = 5 - idx; baseX = GEO.rightQuadX; }
+    if (vIdx >= 12 && vIdx <= 17) { col = vIdx - 12; baseX = GEO.leftQuadX; }
+    else if (vIdx >= 18) { col = vIdx - 18; baseX = GEO.rightQuadX; }
+    else if (vIdx >= 6) { col = 11 - vIdx; baseX = GEO.leftQuadX; }
+    else { col = 5 - vIdx; baseX = GEO.rightQuadX; }
     return baseX + col * GEO.pointW;
   }
-  const isTop = idx => idx >= 12;
+  const isTopView = vIdx => vIdx >= 12;
 
-  /* מיקום חייל מספר k מתוך n בנקודה */
+  /* מיקום חייל מספר k מתוך n בנקודה (idx במונחי המודל) */
   function slotPos(idx, k, n) {
+    const v = toView(idx);
     const D = dh();
-    const left = pointX(idx) + GEO.pointW / 2 - GEO.checkerD / 2;
+    const left = pointX(v) + GEO.pointW / 2 - GEO.checkerD / 2;
     const maxSpan = GEO.rowH - D;
     const spacing = n <= 1 ? D : Math.min(D, maxSpan / (n - 1));
-    const top = isTop(idx)
+    const top = isTopView(v)
       ? GEO.padY + k * spacing
       : (100 - GEO.padY) - D - k * spacing;
     return { left, top };
@@ -125,15 +135,14 @@
     const D = dh();
     const left = GEO.barX + GEO.barW / 2 - GEO.checkerD / 2;
     const step = D * 0.62;
-    const top = color === WHITE ? 52 + k * step : 48 - D - k * step;
-    return { left, top };
+    return { left, top: isMine(color) ? 52 + k * step : 48 - D - k * step };
   }
 
-  /* חיילים שהורדו מתכווצים לכיוון הרצועה של השחקן (מעל/מתחת ללוח) */
+  /* חיילים שהורדו מתכווצים לכיוון הרצועה של בעליהם (מעל/מתחת ללוח) */
   function offPos(color) {
     return {
       left: GEO.rightEdge - GEO.checkerD,
-      top: color === WHITE ? 100 - GEO.padY - dh() : GEO.padY,
+      top: isMine(color) ? 100 - GEO.padY - dh() : GEO.padY,
     };
   }
 
@@ -190,6 +199,10 @@
     autoRoll: true,
     startedAt: 0,
     rollTimer: null,
+    mode: "cpu",       // cpu | online
+    me: WHITE,         // הצבע שהשחקן המקומי מזיז
+    silentCoach: false,// מדרג ברקע בלי להציג כרטיס תוך כדי משחק
+    net: null,         // { tr, role, room, ready, alive, hbTimer, watchTimer }
     dice: [], diceWho: null, diceUsed: [],
     turnStart: null, turnsResult: null,
     prefix: [], chunks: [],
@@ -207,7 +220,7 @@
   const undoBtn = $("#undo-btn");
   const ratingEl = $("#rating");
 
-  let pieceLayer, diceLayer, pointEls = [], borneEls = {}, stripEls = {};
+  let pieceLayer, diceLayer, pointEls = [], pnumEls = [], borneEls = {}, stripEls = {};
   /* מאגר חיילים קבוע: 15 לכל צבע. lastLoc = המיקום הלוגי בפריים הקודם. */
   const pool = { [WHITE]: [], [BLACK]: [] };
   let topPiece = new Map();   // loc -> האלמנט העליון בערימה
@@ -222,19 +235,16 @@
 
     for (let idx = 0; idx < 24; idx++) {
       const p = document.createElement("div");
-      p.className = `point ${isTop(idx) ? "top" : "bottom"} c${idx % 2}`;
-      p.style.left = pointX(idx) + "%";
       p.style.width = GEO.pointW + "%";
       boardEl.appendChild(p);
       pointEls[idx] = p;
 
       const num = document.createElement("div");
-      num.className = `pnum ${isTop(idx) ? "top" : "bottom"}`;
-      num.style.left = pointX(idx) + "%";
       num.style.width = GEO.pointW + "%";
-      num.textContent = idx + 1;
       boardEl.appendChild(num);
+      pnumEls[idx] = num;
     }
+    layoutPoints();
 
     const bar = document.createElement("div");
     bar.className = "bar";
@@ -263,14 +273,14 @@
       }
     }
 
-    borneEls[WHITE] = buildBorne($("#borne-white"));
-    borneEls[BLACK] = buildBorne($("#borne-black"));
-    stripEls[WHITE] = $("#strip-me");
-    stripEls[BLACK] = $("#strip-ai");
+    borneEls.mine = buildBorne($("#borne-white"));
+    borneEls.theirs = buildBorne($("#borne-black"));
+    stripEls.mine = $("#strip-me");
+    stripEls.theirs = $("#strip-ai");
 
     /* מגש ההורדה יושב מחוץ ללוח, ולכן צריך מאזין משלו כדי שאפשר יהיה
        להוריד חייל בלחיצה ולא רק בגרירה. */
-    borneEls[WHITE].host.addEventListener("pointerdown", e => {
+    borneEls.mine.host.addEventListener("pointerdown", e => {
       if (Game.phase !== "playerMove" || !Game.selected) return;
       const chain = Game.selected.chains.find(c => c.dest === "off");
       if (!chain) return;
@@ -278,6 +288,24 @@
       applyChain(chain);
     });
   }
+
+  /* ממקם את המשולשים ואת המספרים לפי נקודת המבט הנוכחית. נקרא מחדש
+     כשמתחילים משחק בצד השני של הלוח. */
+  function layoutPoints() {
+    for (let idx = 0; idx < 24; idx++) {
+      const v = toView(idx);
+      const side = isTopView(v) ? "top" : "bottom";
+      pointEls[idx].className = `point ${side} c${v % 2}`;
+      pointEls[idx].style.left = pointX(v) + "%";
+      pnumEls[idx].className = `pnum ${side}`;
+      pnumEls[idx].style.left = pointX(v) + "%";
+      pnumEls[idx].textContent = v + 1;      // מספור מנקודת מבט הצופה
+    }
+  }
+
+  /* הרצועה והמגש של צבע מסוים: שלי תמיד למטה, של היריב למעלה */
+  const stripOf = color => (isMine(color) ? stripEls.mine : stripEls.theirs);
+  const borneOf = color => (isMine(color) ? borneEls.mine : borneEls.theirs);
 
   function buildBorne(host) {
     host.innerHTML = "";
@@ -392,7 +420,7 @@
         p.cnt.textContent = showCount ? sl.n : "";
 
         /* רק החייל העליון בערימה נחשב "ניתן להזזה" */
-        const movable = Game.phase === "playerMove" && color === WHITE &&
+        const movable = Game.phase === "playerMove" && isMine(color) &&
           isTopOfStack && Game.sources.has(sl.loc);
         p.el.classList.toggle("movable", !!(movable && Game.hints));
         p.el.classList.remove("selected");
@@ -408,14 +436,14 @@
   function renderHud(s) {
     for (const color of [WHITE, BLACK]) {
       const n = s.off[color];
-      borneEls[color].pips.forEach((b, i) => b.classList.toggle("on", i < n));
+      borneOf(color).pips.forEach((b, i) => b.classList.toggle("on", i < n));
     }
-    $("#pip-white").textContent = pipCount(s, WHITE);
-    $("#pip-black").textContent = pipCount(s, BLACK);
+    $("#pip-white").textContent = pipCount(s, Game.me);
+    $("#pip-black").textContent = pipCount(s, -Game.me);
 
-    const myTurn = Game.phase === "playerMove" || Game.phase === "playerRoll";
-    stripEls[WHITE].classList.toggle("active", myTurn);
-    stripEls[BLACK].classList.toggle("active", Game.phase === "ai");
+    const myTurn = ["playerMove", "playerRoll", "rolling", "auto", "blocked", "committing"].includes(Game.phase);
+    stripEls.mine.classList.toggle("active", myTurn);
+    stripEls.theirs.classList.toggle("active", Game.phase === "ai" || Game.phase === "remote");
   }
 
   const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
@@ -453,7 +481,8 @@
     const base = Math.max(4.4, Math.min(11, 6.4 / GEO.AR));
     const w = isDouble ? base * 0.82 : base;
 
-    const usedList = Game.diceWho === WHITE ? Game.prefix.map(m => m.die) : Game.diceUsed;
+    const mine = isMine(Game.diceWho);
+    const usedList = mine ? Game.prefix.map(m => m.die) : Game.diceUsed;
     const left = usedList.slice();
     const usedFlags = values.map(v => {
       const i = left.indexOf(v);
@@ -461,7 +490,8 @@
       return false;
     });
 
-    const quadCenter = Game.diceWho === WHITE
+    /* הקוביות נוחתות ברביע של מי שהטיל אותן — שלי מימין, של היריב משמאל */
+    const quadCenter = mine
       ? GEO.rightQuadX + 3 * GEO.pointW
       : GEO.leftQuadX + 3 * GEO.pointW;
     const gap = w * 0.26;
@@ -470,7 +500,7 @@
 
     values.forEach((v, i) => {
       makeDie(v, quadCenter - totalW / 2 + i * (w + gap), y, w, {
-        ai: Game.diceWho === BLACK,
+        ai: !mine,
         used: usedFlags[i],
         throw: throwAnim,
       });
@@ -480,7 +510,7 @@
   function clearMarks() {
     diceLayer.parentNode.querySelectorAll(".dest").forEach(el => el.remove());
     pointEls.forEach(p => p.classList.remove("dest-hl", "src-hl"));
-    borneEls[WHITE].host.classList.remove("target");
+    borneEls.mine.host.classList.remove("target");
   }
 
   function renderSelection() {
@@ -491,11 +521,11 @@
     if (src) src.el.classList.add("selected");
 
     for (const ch of Game.selected.chains) {
-      if (ch.dest === "off") { borneEls[WHITE].host.classList.add("target"); continue; }
+      if (ch.dest === "off") { borneEls.mine.host.classList.add("target"); continue; }
       const idx = ch.dest;
       pointEls[idx].classList.add("dest-hl");
       const n = Math.abs(s.points[idx]);
-      const isHit = s.points[idx] === -1;
+      const isHit = s.points[idx] === -Game.me;   // בדיוק חייל יריב אחד
       const k = isHit ? 0 : n;
       const pos = slotPos(idx, Math.min(k, 4), Math.max(k + 1, 1));
       const mk = document.createElement("div");
@@ -564,7 +594,7 @@
     const dice = [d6(), d6()];
     if (dice[0] === dice[1]) Stats.add("doubles");
     Game.dice = dice;
-    Game.diceWho = WHITE;
+    Game.diceWho = Game.me;
     Game.prefix = [];
     renderDice(true);
     await delay(T.move);
@@ -580,7 +610,7 @@
     Game.prefix = []; Game.chunks = [];
     Game.selected = null;
     Game.turnNumber++;
-    Game.turnsResult = generateTurns(Game.state, WHITE, dice);
+    Game.turnsResult = generateTurns(Game.state, Game.me, dice);
     Game.phase = "playerMove";
     refreshOptions();
 
@@ -602,7 +632,7 @@
     }
 
     const dbl = dice[0] === dice[1] ? " דאבל — ארבעה מהלכים!" : "";
-    const hint = Game.state.bar[WHITE] > 0
+    const hint = Game.state.bar[Game.me] > 0
       ? "יש לך חייל על הבר — חובה להכניס אותו"
       : "בחר חייל";
     status(`יצא <b>${dice[0]}-${dice[1]}</b>.${dbl} ${hint}`);
@@ -633,7 +663,7 @@
     if (m.hit) Stats.add("hitsMade");
     if (m.to === "off") Stats.add("borneOff");
     if (m.from === "bar") Stats.add("barEntries");
-    Game.view = applyMove(Game.view, WHITE, m).state;
+    Game.view = applyMove(Game.view, Game.me, m).state;
     Game.prefix.push(m);
     refreshOptions();
   }
@@ -663,7 +693,7 @@
     if (!Game.chunks.length) return;
     Game.prefix.length -= Game.chunks.pop();
     let s = Game.turnStart;
-    for (const m of Game.prefix) s = applyMove(s, WHITE, m).state;
+    for (const m of Game.prefix) s = applyMove(s, Game.me, m).state;
     Game.view = s;
     Game.selected = null;
     refreshOptions();
@@ -676,13 +706,13 @@
     const g = Game.gen;
     Game.state = Game.view;
     Game.selected = null;
-    Game.phase = "ai";
+    Game.phase = Game.mode === "online" ? "remote" : "ai";
     updateButtons();
     clearMarks();
 
     Stats.add("turns");
     if (!noMoves) {
-      const r = rateTurn(Game.turnStart, WHITE, Game.dice, Game.state);
+      const r = rateTurn(Game.turnStart, Game.me, Game.dice, Game.state);
       if (!r.noMoves) {
         r.turn = Game.turnNumber;
         r.dice = Game.dice.slice();
@@ -694,45 +724,50 @@
           Stats.add("scoreSum", r.score);
           Stats.d.dist[r.grade.cls] = (Stats.d.dist[r.grade.cls] || 0) + 1;
         }
-        showToast(r);
+        /* מול חבר המאמן שותק תוך כדי משחק — הציון נאסף ומוצג רק בסיום */
+        if (!Game.silentCoach) showToast(r);
         updateAvgChip();
       }
     }
     Stats.save();
     render();
 
-    if (winner(Game.state) === WHITE) return gameOver(WHITE);
+    if (Game.mode === "online") netSend({ t: "turn", dice: Game.dice.slice(), moves: Game.prefix.slice() });
+    if (winner(Game.state) === Game.me) return gameOver(Game.me);
+
+    if (Game.mode === "online") {
+      status("ממתין ליריב…");
+      return;
+    }
     setTimeout(() => { if (!stale(g)) aiTurn(); }, noMoves ? 400 : T.handoff);
   }
 
-  async function aiTurn() {
-    const g = Game.gen;
-    const dice = [d6(), d6()];
-    Game.phase = "ai";
+  /* מריץ תור של הצד השני — בין אם המחשב בחר אותו ובין אם הגיע מהרשת */
+  async function playOpponentTurn(dice, moves, g, label) {
+    const opp = -Game.me;
+    Game.phase = Game.mode === "online" ? "remote" : "ai";
     Game.dice = dice;
-    Game.diceWho = BLACK;
+    Game.diceWho = opp;
     Game.diceUsed = [];
     updateButtons();
     render();
     renderDice(true);
     Sfx.roll();
-    status(`המחשב הטיל <b>${dice[0]}-${dice[1]}</b>`);
+    status(`${label} הטיל <b>${dice[0]}-${dice[1]}</b>`);
     await delay(T.aiThink);
     if (stale(g)) return;
 
-    const tr = generateTurns(Game.state, BLACK, dice);
-    if (tr.maxLen === 0) {
-      status(`המחשב הטיל <b>${dice[0]}-${dice[1]}</b> — אין לו מהלך`);
+    if (!moves.length) {
+      status(`${label} הטיל <b>${dice[0]}-${dice[1]}</b> — אין לו מהלך`);
       await delay(1100);
       if (!stale(g)) playerRollPhase();
       return;
     }
 
-    const choice = chooseAiTurn(Game.state, BLACK, dice, Game.level, tr);
-    for (const m of choice.moves) {
+    for (const m of moves) {
       await delay(T.aiStep);
       if (stale(g)) return;
-      Game.state = applyMove(Game.state, BLACK, m).state;
+      Game.state = applyMove(Game.state, opp, m).state;
       Game.view = Game.state;
       Game.diceUsed.push(m.die);
       render();
@@ -741,10 +776,20 @@
     await delay(T.move);
     if (stale(g)) return;
 
-    const hit = choice.moves.some(m => m.hit);
-    status(`המחשב שיחק ${movesHtml(choice.moves)}${hit ? " — הכה אותך" : ""}`);
-    if (winner(Game.state) === BLACK) return gameOver(BLACK);
+    const hit = moves.some(m => m.hit);
+    status(`${label} שיחק ${movesHtml(moves)}${hit ? " — הכה אותך" : ""}`);
+    if (winner(Game.state) === opp) return gameOver(opp);
     playerRollPhase();
+  }
+
+  async function aiTurn() {
+    const g = Game.gen;
+    const dice = [d6(), d6()];
+    const tr = generateTurns(Game.state, -Game.me, dice);
+    const moves = tr.maxLen === 0
+      ? []
+      : chooseAiTurn(Game.state, -Game.me, dice, Game.level, tr).moves;
+    await playOpponentTurn(dice, moves, g, "המחשב");
   }
 
   function flashHit() {
@@ -788,15 +833,15 @@
     else if (x >= GEO.rightQuadX && x <= GEO.rightEdge) { base = "R"; col = Math.floor((x - GEO.rightQuadX) / GEO.pointW); }
     if (col < 0 || col > 5) return null;
     const top = y < 50;
-    const idx = top ? (base === "L" ? 12 + col : 18 + col)
-                    : (base === "L" ? 11 - col : 5 - col);
-    return { loc: idx };
+    const v = top ? (base === "L" ? 12 + col : 18 + col)
+                  : (base === "L" ? 11 - col : 5 - col);
+    return { loc: toModel(v) };   // חזרה למונחי המודל
   }
 
   /* מגש ההורדה יושב מחוץ ללוח, ולכן נבדק מול הקואורדינטות במסך */
   function overBearOff(e) {
     if (!Game.selected || !Game.selected.chains.some(c => c.dest === "off")) return false;
-    const r = borneEls[WHITE].host.getBoundingClientRect();
+    const r = borneEls.mine.host.getBoundingClientRect();
     const pad = 14;
     return e.clientX >= r.left - pad && e.clientX <= r.right + pad &&
            e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
@@ -856,7 +901,7 @@
     if (drag.moved && drag.piece) {
       drag.piece.el.style.left = (p.x - GEO.checkerD / 2) + "%";
       drag.piece.el.style.top = (p.y - dh() / 2) + "%";
-      borneEls[WHITE].host.classList.toggle("target",
+      borneEls.mine.host.classList.toggle("target",
         Game.selected.chains.some(c => c.dest === "off") && overBearOff(e));
     }
   }
@@ -958,14 +1003,19 @@
     const kindTxt = { 1: "ניצחון רגיל", 2: "מארס — ניצחון כפול", 3: "מארס טורקי — ניצחון משולש" }[kind];
     const sum = summarizeRatings(Game.ratings);
 
-    /* רישום התוצאה לסטטיסטיקה המצטברת */
-    const won = winColor === WHITE;
-    const lvl = Stats.d.byLevel[Game.level] || (Stats.d.byLevel[Game.level] = { g: 0, w: 0 });
+    /* רישום התוצאה לסטטיסטיקה המצטברת. הפילוח לפי רמת קושי נוגע רק
+       למשחקים מול המחשב; משחקים מול חבר נספרים בנפרד. */
+    const won = winColor === Game.me;
+    const online = Game.mode === "online";
+    const lvl = online ? { g: 0, w: 0 }
+      : (Stats.d.byLevel[Game.level] || (Stats.d.byLevel[Game.level] = { g: 0, w: 0 }));
     Stats.add("games");
     Stats.add("playMs", Math.max(0, Date.now() - Game.startedAt));
+    if (online) Stats.add("onlineGames");
     lvl.g++;
     if (won) {
       Stats.add("wins"); lvl.w++;
+      if (online) Stats.add("onlineWins");
       Stats.d.winKind[kind] = (Stats.d.winKind[kind] || 0) + 1;
       Stats.d.streak = Math.max(0, Stats.d.streak) + 1;
       Stats.d.bestStreak = Math.max(Stats.d.bestStreak, Stats.d.streak);
@@ -981,22 +1031,201 @@
     Stats.save();
 
     won ? Sfx.win() : Sfx.lose();
-    status(winColor === WHITE ? "ניצחת!" : "המחשב ניצח");
+    const iWon = winColor === Game.me;
+    status(iWon ? "ניצחת!" : `${OPP_NAME()} ניצח`);
     showModal(`
-      <h2>${winColor === WHITE ? "ניצחת! 🎉" : "המחשב ניצח"}</h2>
+      <h2>${iWon ? "ניצחת! 🎉" : `${OPP_NAME()} ניצח`}</h2>
       <div class="win-kind">${kindTxt}</div>
       ${summaryHtml(sum)}
       <div class="actions">
         <button class="pill-btn wide gold" id="m-new">משחק חדש</button>
         <button class="pill-btn" id="m-close">סגור</button>
       </div>`);
-    $("#m-new").onclick = newGame;
+    $("#m-new").onclick = () => (Game.mode === "online" ? goHome() : newGame());
     $("#m-close").onclick = hideModal;
   }
 
+  /* ==================== משחק מול חבר ====================
+     שני הצדדים מריצים את אותו מנוע חוקים על אותו מצב התחלתי, ולכן די
+     להעביר ברשת קוביות ומהלכים. המארח מגריל מי פותח ומודיע לאורח. */
+
+  const OPP_NAME = () => (Game.mode === "online" ? "היריב" : "המחשב");
+
+  function netSend(msg) {
+    if (Game.net && Game.net.tr) { try { Game.net.tr.send(msg); } catch (_) {} }
+  }
+
+  function netTeardown() {
+    if (!Game.net) return;
+    clearInterval(Game.net.hbTimer);
+    clearInterval(Game.net.watchTimer);
+    try { Game.net.tr.send({ t: "bye" }); } catch (_) {}
+    try { Game.net.tr.close(); } catch (_) {}
+    Game.net = null;
+  }
+
+  function netAlive() {
+    if (Game.net) Game.net.lastSeen = Date.now();
+    $("#net-warn").hidden = true;
+  }
+
+  async function netOpen(role, room) {
+    netTeardown();
+    const tr = makeTransport();
+    Game.net = { tr, role, room, lastSeen: Date.now(), started: false };
+    tr.onMessage = onNetMessage;
+    await tr.open(room);
+
+    Game.net.hbTimer = setInterval(() => netSend({ t: "ping" }), 3000);
+    Game.net.watchTimer = setInterval(() => {
+      if (!Game.net || !Game.net.started) return;
+      const gap = Date.now() - Game.net.lastSeen;
+      $("#net-warn").hidden = gap < 12000;
+    }, 2000);
+    return tr;
+  }
+
+  function onNetMessage(m) {
+    if (!m || !Game.net) return;
+    netAlive();
+
+    switch (m.t) {
+      case "hello":
+        /* רק המארח מגריל, וגם אם ההודעה חוזרת פעמיים לא מתחילים משחק שני */
+        if (Game.net.role !== "host" || Game.net.started) {
+          if (Game.net.role === "host") netSend({ t: "welcome", first: Game.net.first });
+          return;
+        }
+        Game.net.first = Math.random() < 0.5 ? WHITE : BLACK;
+        Game.net.started = true;
+        netSend({ t: "welcome", first: Game.net.first });
+        startOnlineGame(WHITE, Game.net.first);
+        break;
+
+      case "welcome":
+        if (Game.net.role !== "guest" || Game.net.started) return;
+        Game.net.started = true;
+        startOnlineGame(BLACK, m.first);
+        break;
+
+      case "turn":
+        if (Game.phase !== "remote") return;      // הודעה כפולה או מאוחרת
+        playOpponentTurn(m.dice, m.moves || [], Game.gen, OPP_NAME());
+        break;
+
+      case "bye":
+        if (Game.net.started) {
+          $("#net-warn").hidden = false;
+          $("#net-warn-text").textContent = "היריב עזב את המשחק";
+        }
+        break;
+    }
+  }
+
+  function startOnlineGame(myColor, first) {
+    Game.gen++;
+    clearTimeout(Game.rollTimer);
+    Game.mode = "online";
+    Game.me = myColor;
+    Game.silentCoach = true;
+    Game.level = "medium";              // המנוע עדיין מדרג, רק בלי להציג
+    Game.state = initialState();
+    Game.view = Game.state;
+    Game.ratings = []; Game.turnNumber = 0;
+    Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
+    Game.prefix = []; Game.chunks = [];
+    Game.options = []; Game.sources = new Set(); Game.selected = null;
+    Game.startedAt = Date.now();
+
+    layoutPoints();                      // הלוח מסתובב לצד של השחקן
+    setOpponentLabel("יריב", "🙋");
+    $("#title-level").textContent = "מול חבר";
+    $("#net-warn").hidden = true;
+    hideToast(); hideModal(); hideSheet();
+    updateAvgChip();
+    showScreen("game");
+    fitBoard();
+
+    if (first === myColor) {
+      Game.phase = "playerRoll";
+      updateButtons(); render();
+      status("אתה פותח");
+      armAutoRoll();
+    } else {
+      Game.phase = "remote";
+      updateButtons(); render();
+      status("היריב פותח — ממתין…");
+    }
+  }
+
+  function setOpponentLabel(name, emoji) {
+    $("#strip-ai .nm").textContent = name;
+    $("#strip-ai .avatar").textContent = emoji;
+  }
+
+  /* ---------- מסך הלובי ---------- */
+
+  function lobbyState(name) {
+    ["choose", "host", "join"].forEach(s =>
+      $("#lobby-" + s).hidden = s !== name);
+  }
+
+  async function hostRoom() {
+    const room = makeRoomCode();
+    $("#room-code").textContent = room;
+    $("#host-status").textContent = netConfigured()
+      ? "ממתין שהחבר יצטרף…"
+      : "ממתין… (מצב מקומי: פתחו לשונית שנייה באותו דפדפן)";
+    lobbyState("host");
+    try {
+      await netOpen("host", room);
+    } catch (e) {
+      $("#host-status").textContent = "החיבור נכשל: " + e.message;
+    }
+  }
+
+  async function joinRoom() {
+    const code = normalizeRoomCode($("#join-input").value);
+    if (code.length !== 6) { $("#join-status").textContent = "צריך קוד בן 6 תווים"; return; }
+    $("#join-status").textContent = "מתחבר…";
+    try {
+      await netOpen("guest", code);
+      netSend({ t: "hello" });
+      /* אם אף אחד לא עונה, כנראה שאין חדר כזה */
+      setTimeout(() => {
+        if (Game.net && !Game.net.started) $("#join-status").textContent = "אין תשובה — בדקו את הקוד";
+      }, 6000);
+    } catch (e) {
+      $("#join-status").textContent = "החיבור נכשל: " + e.message;
+    }
+  }
+
+  $("#btn-online").onclick = () => {
+    $("#lobby-mode-note").textContent = netConfigured()
+      ? "מחובר דרך Supabase — אפשר לשחק מכל מקום"
+      : "מצב מקומי: עובד בין לשוניות באותו דפדפן. להוספת משחק דרך האינטרנט מלאו את NET_CONFIG ב-js/net.js";
+    lobbyState("choose");
+    showScreen("online");
+  };
+  $("#lobby-host-btn").onclick = hostRoom;
+  $("#lobby-join-btn").onclick = () => { $("#join-status").textContent = ""; lobbyState("join"); };
+  $("#join-go").onclick = joinRoom;
+  $("#join-input").oninput = e => { e.target.value = normalizeRoomCode(e.target.value); };
+  $("#join-input").onkeydown = e => { if (e.key === "Enter") joinRoom(); };
+  document.querySelectorAll("[data-lobby-back]").forEach(b => b.onclick = () => {
+    netTeardown(); lobbyState("choose");
+  });
+
+  $("#room-copy").onclick = async () => {
+    const code = $("#room-code").textContent;
+    try { await navigator.clipboard.writeText(code); $("#room-copy").textContent = "הועתק ✓"; }
+    catch (_) { $("#room-copy").textContent = code; }
+    setTimeout(() => { $("#room-copy").textContent = "העתק קוד"; }, 1800);
+  };
+
   /* ---------- ניווט בין מסכים ---------- */
 
-  const SCREENS = ["home", "game", "stats", "donate"];
+  const SCREENS = ["home", "game", "stats", "donate", "online"];
   function showScreen(name) {
     SCREENS.forEach(s => $("#screen-" + s).classList.toggle("on", s === name));
     if (name === "home") renderHomeQuick();
@@ -1009,13 +1238,21 @@
   function goHome() {
     Game.gen++;
     clearTimeout(Game.rollTimer);
+    netTeardown();
     Game.phase = "idle";
     hideSheet(); hideModal(); hideToast();
     showScreen("home");
   }
 
   function startGame(level) {
+    netTeardown();
+    Game.mode = "cpu";
+    Game.me = WHITE;
+    Game.silentCoach = false;
     Game.level = level;
+    layoutPoints();
+    setOpponentLabel("מחשב", "🤖");
+    $("#net-warn").hidden = true;
     syncLevelUi(level);
     $("#level-backdrop").hidden = true;
     showScreen("game");
@@ -1107,13 +1344,15 @@
       </div>
 
       <div class="stat-sec">
-        <h4>לפי רמת קושי</h4>
+        <h4>לפי יריב</h4>
         <div class="stat-rows">
           ${["easy", "medium", "hard"].map(k => {
             const l = d.byLevel[k] || { g: 0, w: 0 };
             const pct = l.g ? Math.round(l.w / l.g * 100) : 0;
             return row(LEVEL_NAME[k], `${l.w}/${l.g}` + (l.g ? ` · ${pct}%` : ""));
           }).join("")}
+          ${row("מול חבר", `${d.onlineWins || 0}/${d.onlineGames || 0}` +
+            (d.onlineGames ? ` · ${Math.round((d.onlineWins || 0) / d.onlineGames * 100)}%` : ""))}
         </div>
       </div>`;
 
@@ -1199,7 +1438,7 @@
 
   $("#menu-btn").onclick = showSheet;
   $("#sheet-backdrop").onclick = e => { if (e.target.id === "sheet-backdrop") hideSheet(); };
-  $("#sheet-new").onclick = () => { hideSheet(); newGame(); };
+  $("#sheet-new").onclick = () => { hideSheet(); Game.mode === "online" ? goHome() : newGame(); };
   $("#sheet-home").onclick = goHome;
   $("#avg-chip").onclick = showStatsModal;
 

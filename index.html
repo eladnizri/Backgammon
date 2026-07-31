@@ -40,6 +40,10 @@
         <svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>
         התחל משחק
       </button>
+      <button class="home-btn" id="btn-online">
+        <svg viewBox="0 0 24 24" class="stroke"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 6.2a3 3 0 0 1 0 5.6M19.4 3.6a6.5 6.5 0 0 1 0 10.8"/></svg>
+        שחק עם חבר
+      </button>
       <button class="home-btn" id="btn-stats">
         <svg viewBox="0 0 24 24" class="stroke"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
         סטטיסטיקות
@@ -81,6 +85,8 @@
     <div class="pipbox"><b id="pip-black">167</b><span>פיפ</span></div>
   </section>
 
+  <div id="net-warn" hidden><span id="net-warn-text">אין קשר עם היריב…</span></div>
+
   <section id="board-area">
     <div id="board" dir="ltr"></div>
   </section>
@@ -118,6 +124,59 @@
     </div>
   </footer>
 
+</div>
+
+
+<!-- ========================= לובי משחק מול חבר ========================= -->
+<div id="screen-online" class="screen">
+  <header class="sub-top">
+    <button class="ghost-btn back" data-home aria-label="חזרה"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="title">שחק עם חבר</div>
+    <span class="ghost-spacer"></span>
+  </header>
+
+  <div class="sub-scroll">
+
+    <!-- בחירה: ליצור חדר או להצטרף -->
+    <div id="lobby-choose">
+      <div class="donate-hero">
+        <svg class="logo-lg"><use href="#ico-logo"/></svg>
+        <p>שחקו מול חבר בזמן אמת. אחד פותח חדר ומוסר את הקוד, השני מכניס אותו.</p>
+      </div>
+      <div class="home-actions">
+        <button class="home-btn primary" id="lobby-host-btn">פתח חדר חדש</button>
+        <button class="home-btn" id="lobby-join-btn">הצטרף עם קוד</button>
+      </div>
+      <p class="home-foot" id="lobby-mode-note"></p>
+    </div>
+
+    <!-- מארח: מציג קוד וממתין -->
+    <div id="lobby-host" hidden>
+      <div class="code-box">
+        <span class="code-cap">קוד החדר</span>
+        <b id="room-code" dir="ltr">------</b>
+        <button class="pill-btn" id="room-copy">העתק קוד</button>
+      </div>
+      <p class="lobby-status" id="host-status">ממתין…</p>
+      <div class="dots-wait"><i></i><i></i><i></i></div>
+      <button class="pill-btn wide" data-lobby-back>ביטול</button>
+    </div>
+
+    <!-- אורח: הזנת קוד -->
+    <div id="lobby-join" hidden>
+      <div class="code-box">
+        <span class="code-cap">הכניסו את קוד החדר</span>
+        <input id="join-input" dir="ltr" inputmode="latin" autocomplete="off"
+               maxlength="6" placeholder="ABC123" aria-label="קוד חדר">
+      </div>
+      <p class="lobby-status" id="join-status"></p>
+      <div class="home-actions">
+        <button class="home-btn primary" id="join-go">הצטרף</button>
+        <button class="pill-btn wide" data-lobby-back>חזרה</button>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 
@@ -212,6 +271,7 @@
 
 <script src="js/rules.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/net.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
