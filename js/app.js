@@ -92,6 +92,7 @@
       } catch (_) { /* אחסון חסום — ממשיכים בזיכרון בלבד */ }
 
       if (!this.d || !Array.isArray(this.d.list) || !this.d.list.length) {
+        this.isNew = true;               // הפעלה ראשונה — נבקש שם לפני הכול
         const first = this.make("שחקן", AVATARS[0]);
         /* העברת הסטטיסטיקה מהגרסה שהייתה בלי פרופילים */
         try {
@@ -400,6 +401,7 @@
   const statusEl = $("#status-text");
   const rollBtn = $("#roll-btn");
   const undoBtn = $("#undo-btn");
+  const confirmBtn = $("#confirm-btn");
   const ratingEl = $("#rating");
 
   let pieceLayer, diceLayer, pointEls = [], pnumEls = [], borneEls = {}, stripEls = {};
@@ -623,7 +625,7 @@
     $("#pip-white").textContent = pipCount(s, Game.me);
     $("#pip-black").textContent = pipCount(s, -Game.me);
 
-    const myTurn = ["playerMove", "playerRoll", "rolling", "auto", "blocked", "committing"].includes(Game.phase);
+    const myTurn = ["playerMove", "playerRoll", "rolling", "auto", "blocked", "confirm"].includes(Game.phase);
     stripEls.mine.classList.toggle("active", myTurn);
     stripEls.theirs.classList.toggle("active", Game.phase === "ai" || Game.phase === "remote");
   }
@@ -736,7 +738,10 @@
   function updateButtons() {
     /* בהטלה אוטומטית הכפתור מיותר ורק מהבהב לרגע — עדיף להסתיר אותו */
     rollBtn.hidden = !(Game.phase === "playerRoll") || Game.autoRoll;
-    undoBtn.hidden = !(Game.phase === "playerMove" && Game.prefix.length > 0 && Game.options.length > 0);
+    confirmBtn.hidden = Game.phase !== "confirm";
+    /* ביטול זמין כל עוד התור לא אושר, כולל בשלב האישור */
+    undoBtn.hidden = !(Game.prefix.length > 0 &&
+      (Game.phase === "playerMove" || Game.phase === "confirm"));
   }
 
   /* ---------- זרימת המשחק ---------- */
@@ -871,10 +876,10 @@
     } else if (bore) Sfx.off(); else Sfx.place();
 
     if (Game.options.length === 0) {
-      Game.phase = "committing";
-      stopTimer();
+      /* התור לא נסגר מעצמו — נותנים הזדמנות אחרונה לבטל ולחשוב מחדש */
+      Game.phase = "confirm";
       updateButtons();
-      setTimeout(() => { if (!stale(g)) endPlayerTurn(false); }, T.move + T.settle);
+      status("סיימת את המהלכים — <b>סיים תור</b> לאישור");
     } else {
       status(`נותרו מהלכים — ${Game.options.length === 1 ? "מהלך אחד" : "בחר חייל"}`);
     }
@@ -882,6 +887,7 @@
 
   function undoChunk() {
     if (!Game.chunks.length) return;
+    if (Game.phase === "confirm") Game.phase = "playerMove";
     Game.prefix.length -= Game.chunks.pop();
     let s = Game.turnStart;
     for (const m of Game.prefix) s = applyMove(s, Game.me, m).state;
@@ -1044,6 +1050,7 @@
     }
     const g = Game.gen;
     if (Game.phase === "playerRoll") { playerRoll(); return; }
+    if (Game.phase === "confirm") { endPlayerTurn(false); return; }
     if (Game.phase !== "playerMove") return;
 
     /* מחזירים את התור להתחלה ונותנים למנוע לבחור — עדיף מלהשאיר תור חצי־מוזז */
@@ -1573,7 +1580,7 @@
   /* ---------- פרישה ---------- */
 
   function resign() {
-    if (!["playerMove", "playerRoll", "ai", "remote", "rolling", "auto", "blocked", "committing"].includes(Game.phase)) return;
+    if (!["playerMove", "playerRoll", "ai", "remote", "rolling", "auto", "blocked", "confirm"].includes(Game.phase)) return;
     hideSheet();
     if (!confirm("לפרוש מהמשחק? ההפסד ייספר בסטטיסטיקה.")) return;
     if (Game.mode === "online") netSend({ t: "resign" });
@@ -1827,7 +1834,7 @@
 
   /* ---------- ניווט בין מסכים ---------- */
 
-  const SCREENS = ["home", "game", "stats", "online"];
+  const SCREENS = ["welcome", "home", "game", "stats", "online"];
   function showScreen(name) {
     SCREENS.forEach(s => $("#screen-" + s).classList.toggle("on", s === name));
     if (name === "home") renderHomeQuick();
@@ -1880,6 +1887,42 @@
       <div class="q"><b>${d.games}</b><span>משחקים</span></div>
       <div class="q"><b>${Stats.winRate()}%</b><span>ניצחונות</span></div>
       <div class="q"><b>${avg == null ? "—" : avg}</b><span>ציון ממוצע</span></div>`;
+  }
+
+  /* ---------- מסך הפתיחה (הפעלה ראשונה) ---------- */
+
+  let welcomeAvatar = AVATARS[0];
+
+  function buildWelcome() {
+    $("#av-picker").innerHTML = AVATARS.map((a, i) =>
+      `<button class="av-opt${i === 0 ? " on" : ""}" data-av="${a}">${a}</button>`).join("");
+  }
+
+  $("#av-picker").onclick = e => {
+    const b = e.target.closest("[data-av]");
+    if (!b) return;
+    welcomeAvatar = b.dataset.av;
+    [...e.currentTarget.children].forEach(c => c.classList.toggle("on", c === b));
+  };
+
+  $("#welcome-name").oninput = e => {
+    $("#welcome-go").disabled = !e.target.value.trim();
+  };
+  $("#welcome-name").onkeydown = e => {
+    if (e.key === "Enter" && $("#welcome-name").value.trim()) finishWelcome();
+  };
+  $("#welcome-go").onclick = finishWelcome;
+
+  function finishWelcome() {
+    const name = $("#welcome-name").value.trim();
+    if (!name) return;
+    const p = Profiles.active();
+    p.name = name.slice(0, 14);
+    p.avatar = welcomeAvatar;
+    Profiles.isNew = false;
+    Profiles.save();
+    Sfx.boot();                 // המחווה הראשונה — מרשה לדפדפן להשמיע צליל
+    showScreen("home");
   }
 
   /* ---------- ניהול פרופילים ---------- */
@@ -2117,7 +2160,7 @@
     Game.turnSecs = Number(b.dataset.v);
     [...e.currentTarget.children].forEach(c => c.classList.toggle("on", c === b));
     /* מחילים מיד על התור הנוכחי */
-    if (Game.phase === "playerMove") startTimer(Game.me);
+    if (Game.phase === "playerMove" || Game.phase === "confirm") startTimer(Game.me);
     else if (Game.phase === "remote") startTimer(-Game.me);
     else stopTimer();
   };
@@ -2151,6 +2194,9 @@
 
   rollBtn.addEventListener("click", playerRoll);
   undoBtn.addEventListener("click", undoChunk);
+  confirmBtn.addEventListener("click", () => {
+    if (Game.phase === "confirm") endPlayerTurn(false);
+  });
   ratingEl.addEventListener("click", hideToast);
 
   boardEl.addEventListener("pointerdown", onPointerDown);
@@ -2175,10 +2221,11 @@
 
   /* ---------- התחלה ---------- */
   buildBoard();
+  buildWelcome();
   Game.state = initialState();
   Game.view = Game.state;
   render();
-  showScreen("home");
+  showScreen(Profiles.isNew ? "welcome" : "home");
 
   window.__bg = {
     Game, GEO, Stats, Profiles, Sfx, render, newGame, playerRoll, aiTurn, endPlayerTurn,

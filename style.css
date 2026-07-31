@@ -198,6 +198,8 @@ body {
   border-color: transparent;
   box-shadow: 0 12px 28px -10px rgba(227, 189, 119, .6);
 }
+.home-btn:disabled { opacity: .4; box-shadow: none; cursor: default; }
+.home-btn:disabled:active { transform: none; }
 .home-btn svg { width: 19px; height: 19px; fill: currentColor; }
 .home-btn svg.stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -1217,3 +1219,57 @@ body[data-board="ivory"] {
 
 .stat-row b.lead { color: #4ecb82; }
 .stat-row b.trail { color: #e2504c; }
+
+/* ---------- מסך הפתיחה ---------- */
+
+.av-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 380px;
+}
+.av-opt {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: border-color .16s, transform .1s, background .16s;
+}
+.av-opt:active { transform: scale(.92); }
+.av-opt.on { border-color: var(--gold); background: rgba(227, 189, 119, .14); }
+
+.name-input {
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+  width: 100%;
+  max-width: 380px;
+  padding: 15px 16px;
+  color: var(--text);
+  background: rgba(0, 0, 0, .35);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  outline: none;
+}
+.name-input:focus { border-color: var(--gold); }
+.name-input::placeholder { color: var(--text-dim); font-weight: 400; }
+
+/* כפתור אישור התור */
+.pill-btn.confirm {
+  background: linear-gradient(180deg, #63d68d, #2f9e5b);
+  color: #06210f;
+  border-color: transparent;
+  font-weight: 700;
+  padding: 12px 22px;
+  box-shadow: 0 10px 24px -10px rgba(76, 200, 128, .7);
+  animation: breathe-green 2.4s ease-in-out infinite;
+}
+@keyframes breathe-green {
+  0%, 100% { box-shadow: 0 10px 24px -12px rgba(76, 200, 128, .5); }
+  50%      { box-shadow: 0 10px 30px -8px rgba(76, 200, 128, .9); }
+}
+.pill-btn.confirm svg { stroke-width: 2.6; }
