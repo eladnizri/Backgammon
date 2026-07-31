@@ -33,6 +33,12 @@
       <p class="home-sub">עם מאמן אישי שמדרג כל מהלך</p>
     </div>
 
+    <button class="who-chip" id="who-chip">
+      <span class="who-av" id="who-av">🙂</span>
+      <span class="who-name" id="who-name">שחקן</span>
+      <span class="who-swap">החלף</span>
+    </button>
+
     <div class="home-quick" id="home-quick"></div>
 
     <div class="home-actions">
@@ -235,6 +241,16 @@
     </div>
 
     <div class="row">
+      <span class="row-lbl">טיימר לתור</span>
+      <div class="seg" id="timer-seg">
+        <button data-v="0">כבוי</button>
+        <button data-v="30">30ש׳</button>
+        <button data-v="60" class="on">60ש׳</button>
+        <button data-v="120">2ד׳</button>
+      </div>
+    </div>
+
+    <div class="row">
       <span class="row-lbl">צלילים</span>
       <button class="toggle on" id="sound-toggle" role="switch" aria-checked="true"><i></i></button>
     </div>
@@ -247,6 +263,20 @@
     <div class="sheet-actions">
       <button class="pill-btn wide" id="sheet-home">מסך הבית</button>
       <button class="pill-btn wide gold" id="sheet-new">משחק חדש</button>
+    </div>
+    <button class="pill-btn wide danger" id="sheet-resign">פרוש מהמשחק</button>
+  </div>
+</div>
+
+
+<!-- ============================== פרופילים ============================== -->
+<div id="profiles-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet">
+    <div class="grabber"></div>
+    <h3>מי משחק?</h3>
+    <div id="profiles-list"></div>
+    <div class="sheet-actions">
+      <button class="pill-btn wide gold" id="profile-add">הוסף שחקן</button>
     </div>
   </div>
 </div>

@@ -31,10 +31,12 @@
 
   const LEVEL_NAME = { easy: "רמה קלה", medium: "רמה בינונית", hard: "רמה קשה" };
 
-  /* ---------- סטטיסטיקה מצטברת (נשמרת בדפדפן) ---------- */
+  const AVATARS = ["🙂", "😎", "🦊", "🐼", "🐯", "🦉", "🐺", "🦁", "🐨", "🐸", "👑", "⚡"];
+
+  /* ---------- סטטיסטיקה מצטברת (לכל שחקן בנפרד) ---------- */
   const Stats = {
-    KEY: "shesh-besh-stats-v1",
-    d: null,
+    /* d מצביע תמיד על הסטטיסטיקה של הפרופיל הפעיל */
+    get d() { return Profiles.active().stats; },
 
     blank() {
       return {
@@ -52,26 +54,77 @@
       };
     },
 
+    save() { Profiles.save(); },
+    add(key, n = 1) { this.d[key] = (this.d[key] || 0) + n; },
+    reset() {
+      Object.assign(Profiles.active().stats, this.blank());
+      Profiles.save();
+    },
+
+    /* נגזרות — מקבלות סטטיסטיקה כדי שאפשר יהיה לחשב גם לפרופיל אחר */
+    winRate(s) { s = s || this.d; return s.games ? Math.round(s.wins / s.games * 100) : 0; },
+    avgScore(s) { s = s || this.d; return s.rated ? Math.round(s.scoreSum / s.rated) : null; },
+    avgTurns(s) { s = s || this.d; return s.games ? Math.round(s.turns / s.games) : 0; },
+  };
+
+  /* ---------- פרופילים ----------
+     כל שחקן על המכשיר מקבל שם, סמל וסטטיסטיקה משלו. השם גם נשלח
+     ליריב במשחק מקוון כדי שכל צד יראה מול מי הוא משחק. */
+  const Profiles = {
+    KEY: "shesh-besh-profiles-v1",
+    OLD_STATS: "shesh-besh-stats-v1",
+    d: null,
+
+    make(name, avatar) {
+      return {
+        id: Math.random().toString(36).slice(2, 9),
+        name: name || "שחקן",
+        avatar: avatar || AVATARS[0],
+        stats: Stats.blank(),
+      };
+    },
+
     load() {
       try {
         const raw = localStorage.getItem(this.KEY);
-        if (raw) this.d = Object.assign(this.blank(), JSON.parse(raw));
+        if (raw) this.d = JSON.parse(raw);
       } catch (_) { /* אחסון חסום — ממשיכים בזיכרון בלבד */ }
-      if (!this.d) this.d = this.blank();
+
+      if (!this.d || !Array.isArray(this.d.list) || !this.d.list.length) {
+        const first = this.make("שחקן", AVATARS[0]);
+        /* העברת הסטטיסטיקה מהגרסה שהייתה בלי פרופילים */
+        try {
+          const old = localStorage.getItem(this.OLD_STATS);
+          if (old) Object.assign(first.stats, JSON.parse(old));
+        } catch (_) {}
+        this.d = { active: first.id, list: [first] };
+        this.save();
+      }
+      /* השלמת שדות חסרים אחרי שדרוג גרסה */
+      for (const p of this.d.list) p.stats = Object.assign(Stats.blank(), p.stats || {});
+      if (!this.d.list.some(p => p.id === this.d.active)) this.d.active = this.d.list[0].id;
       return this.d;
     },
-    save() {
-      try { localStorage.setItem(this.KEY, JSON.stringify(this.d)); } catch (_) {}
-    },
-    add(key, n = 1) { this.d[key] = (this.d[key] || 0) + n; },
-    reset() { this.d = this.blank(); this.save(); },
 
-    /* נגזרות */
-    winRate() { return this.d.games ? Math.round(this.d.wins / this.d.games * 100) : 0; },
-    avgScore() { return this.d.rated ? Math.round(this.d.scoreSum / this.d.rated) : null; },
-    avgTurns() { return this.d.games ? Math.round(this.d.turns / this.d.games) : 0; },
+    save() { try { localStorage.setItem(this.KEY, JSON.stringify(this.d)); } catch (_) {} },
+    active() { return this.d.list.find(p => p.id === this.d.active) || this.d.list[0]; },
+    setActive(id) { if (this.d.list.some(p => p.id === id)) { this.d.active = id; this.save(); } },
+    add(name) { const p = this.make(name, AVATARS[this.d.list.length % AVATARS.length]); this.d.list.push(p); this.d.active = p.id; this.save(); return p; },
+    remove(id) {
+      if (this.d.list.length <= 1) return;
+      this.d.list = this.d.list.filter(p => p.id !== id);
+      if (!this.d.list.some(p => p.id === this.d.active)) this.d.active = this.d.list[0].id;
+      this.save();
+    },
+    rename(id, name) { const p = this.d.list.find(x => x.id === id); if (p && name) { p.name = name.slice(0, 14); this.save(); } },
+    cycleAvatar(id) {
+      const p = this.d.list.find(x => x.id === id);
+      if (!p) return;
+      p.avatar = AVATARS[(AVATARS.indexOf(p.avatar) + 1) % AVATARS.length];
+      this.save();
+    },
   };
-  Stats.load();
+  Profiles.load();
 
   /* ---------- גאומטריה (אחוזים מתוך רוחב/גובה הלוח) ---------- */
   const GEO = {
@@ -138,46 +191,177 @@
     };
   }
 
-  /* ---------- צליל ורטט ---------- */
+  /* ---------- צליל ורטט ----------
+     החומרים בשש-בש הם עץ, עצם ולבד, ולכן כל הצלילים כאן נבנים מאותו
+     אבן בניין: פרץ רעש קצר שעובר דרך מסנן פס — "קלאק" — עם גוף מצלצל
+     נמוך שנותן לו חומר. ריבוי קלאקים בזמנים אקראיים נשמע כמו קוביות
+     אמיתיות מתגלגלות, ושליחה קלה להדהוד מונעת את הצליל היבש. */
   const Sfx = {
-    on: true, ctx: null,
+    on: true, ctx: null, master: null, verb: null, noiseBuf: null,
+
     boot() {
       if (!this.on) return null;
       try {
-        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (!this.ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return null;
+          const c = this.ctx = new AC();
+
+          this.master = c.createGain();
+          this.master.gain.value = 0.85;
+          this.master.connect(c.destination);
+
+          /* חדר קטן מסונתז — נותן לקליקים מקום במקום צליל שטוח */
+          this.verb = c.createConvolver();
+          this.verb.buffer = this.makeImpulse(0.26, 3.2);
+          const wet = c.createGain();
+          wet.gain.value = 0.18;
+          this.verb.connect(wet).connect(this.master);
+
+          this.noiseBuf = this.makeNoise(0.4);
+        }
         if (this.ctx.state === "suspended") this.ctx.resume();
         return this.ctx;
       } catch (_) { return null; }
     },
-    blip(freq, dur, type, vol) {
-      const c = this.boot(); if (!c) return;
+
+    makeNoise(sec) {
+      const c = this.ctx, n = Math.floor(c.sampleRate * sec);
+      const b = c.createBuffer(1, n, c.sampleRate);
+      const d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      return b;
+    },
+
+    makeImpulse(sec, decay) {
+      const c = this.ctx, n = Math.floor(c.sampleRate * sec);
+      const b = c.createBuffer(2, n, c.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = b.getChannelData(ch);
+        for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay);
+      }
+      return b;
+    },
+
+    /* פגיעה יחידה של חומר קשה */
+    clack(t, o = {}) {
+      const c = this.ctx;
+      const gain = o.gain != null ? o.gain : 0.5;
+      const dur = o.dur != null ? o.dur : 0.055;
+
+      const src = c.createBufferSource();
+      src.buffer = this.noiseBuf;
+      src.playbackRate.value = 0.8 + Math.random() * 0.5;
+
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = o.freq || 2200;
+      bp.Q.value = o.q || 5;
+
+      const g = c.createGain();
+      g.gain.setValueAtTime(gain, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+      src.connect(bp).connect(g);
+      g.connect(this.master);
+      g.connect(this.verb);
+      src.start(t, Math.random() * 0.2);
+      src.stop(t + dur + 0.02);
+
+      /* גוף נמוך שנותן תחושת מסה */
+      if (o.body) {
+        const osc = c.createOscillator(), og = c.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(o.body, t);
+        osc.frequency.exponentialRampToValueAtTime(o.body * 0.55, t + dur * 1.2);
+        og.gain.setValueAtTime(gain * 0.45, t);
+        og.gain.exponentialRampToValueAtTime(0.0001, t + dur * 1.5);
+        osc.connect(og);
+        og.connect(this.master);
+        og.connect(this.verb);
+        osc.start(t); osc.stop(t + dur * 1.7);
+      }
+    },
+
+    tone(t, freq, dur, gain, type) {
+      const c = this.ctx;
       const o = c.createOscillator(), g = c.createGain();
-      o.type = type; o.frequency.value = freq;
-      g.gain.setValueAtTime(0, c.currentTime);
-      g.gain.linearRampToValueAtTime(vol, c.currentTime + 0.008);
-      g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + dur);
-      o.connect(g).connect(c.destination);
-      o.start(); o.stop(c.currentTime + dur);
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(gain, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g);
+      g.connect(this.master);
+      g.connect(this.verb);
+      o.start(t); o.stop(t + dur + 0.02);
     },
-    noise(dur, vol) {
+
+    /* גלגול: פגיעות שהולכות ומתקרבות זו לזו ונחלשות, כמו קוביות שנעצרות */
+    roll() {
       const c = this.boot(); if (!c) return;
-      const n = Math.floor(c.sampleRate * dur);
-      const buf = c.createBuffer(1, n, c.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
-      const src = c.createBufferSource(); src.buffer = buf;
-      const f = c.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 1800;
-      const g = c.createGain(); g.gain.value = vol;
-      src.connect(f).connect(g).connect(c.destination);
-      src.start();
+      const t0 = c.currentTime + 0.01;
+      const n = 6 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        const k = i / (n - 1);
+        const t = t0 + Math.pow(k, 0.62) * 0.5 + Math.random() * 0.02;
+        const amp = 0.55 * (1 - k * 0.72);
+        this.clack(t, {
+          gain: amp,
+          freq: 1500 + Math.random() * 1800,
+          q: 3 + Math.random() * 6,
+          dur: 0.035 + 0.035 * (1 - k),
+          body: 200 + Math.random() * 220,
+        });
+      }
+      buzz([6, 30, 8, 40, 10]);
     },
-    place() { this.blip(420, 0.07, "triangle", 0.07); buzz(8); },
-    roll()  { this.noise(0.22, 0.13); buzz(14); },
-    hit()   { this.blip(140, 0.20, "sawtooth", 0.10); buzz([12, 40, 22]); },
-    off()   { this.blip(880, 0.13, "sine", 0.08); },
-    win()   { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.blip(f, 0.24, "sine", 0.09), i * 105)); },
-    lose()  { [392, 330, 262].forEach((f, i) => setTimeout(() => this.blip(f, 0.3, "sine", 0.08), i * 130)); },
+
+    place() {
+      const c = this.boot(); if (!c) return;
+      this.clack(c.currentTime + 0.005, { gain: 0.5, freq: 2500, q: 6, dur: 0.05, body: 340 });
+      buzz(9);
+    },
+
+    hit() {
+      const c = this.boot(); if (!c) return;
+      const t = c.currentTime + 0.005;
+      this.clack(t, { gain: 0.8, freq: 850, q: 2.5, dur: 0.13, body: 140 });
+      this.clack(t + 0.06, { gain: 0.32, freq: 1900, q: 6, dur: 0.06, body: 240 });
+      buzz([14, 45, 26]);
+    },
+
+    off() {
+      const c = this.boot(); if (!c) return;
+      const t = c.currentTime + 0.005;
+      this.clack(t, { gain: 0.45, freq: 2700, q: 7, dur: 0.05, body: 430 });
+      this.tone(t + 0.03, 1175, 0.16, 0.045, "sine");
+      this.tone(t + 0.09, 1568, 0.2, 0.035, "sine");
+    },
+
+    win() {
+      const c = this.boot(); if (!c) return;
+      const t = c.currentTime;
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        this.tone(t + i * 0.1, f, 0.34, 0.07, "triangle");
+        this.tone(t + i * 0.1, f * 2, 0.22, 0.022, "sine");
+      });
+    },
+
+    lose() {
+      const c = this.boot(); if (!c) return;
+      const t = c.currentTime;
+      [392, 329.63, 261.63].forEach((f, i) =>
+        this.tone(t + i * 0.13, f, 0.4, 0.06, "triangle"));
+    },
+
+    /* טיק שקט לשניות האחרונות של הטיימר */
+    tick(urgent) {
+      const c = this.boot(); if (!c) return;
+      this.clack(c.currentTime, { gain: urgent ? 0.3 : 0.16, freq: urgent ? 3200 : 2600, q: 12, dur: 0.03 });
+    },
   };
+
   function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (_) {} }
 
   /* ---------- מצב ---------- */
@@ -191,8 +375,11 @@
     autoRoll: true,
     startedAt: 0,
     rollTimer: null,
+    turnSecs: 60,      // 0 = בלי טיימר
+    timer: null,       // { until, who, raf, lastTick }
     mode: "cpu",       // cpu | online
     me: WHITE,         // הצבע שהשחקן המקומי מזיז
+    oppName: "מחשב",
     silentCoach: false,// מדרג ברקע בלי להציג כרטיס תוך כדי משחק
     net: null,         // { tr, role, room, ready, alive, hbTimer, watchTimer }
     dice: [], diceWho: null, diceUsed: [],
@@ -563,6 +750,7 @@
     Game.selected = null;
     Game.phase = "playerRoll";
     Game.startedAt = Date.now();
+    stopTimer();
     clearTimeout(Game.rollTimer);
     hideToast(); hideModal(); hideSheet();
     updateAvgChip();
@@ -608,6 +796,7 @@
 
     if (Game.turnsResult.maxLen === 0) {
       Game.phase = "blocked";
+      stopTimer();
       status(`יצא <b>${dice[0]}-${dice[1]}</b> — אין מהלך אפשרי`);
       updateButtons(); render();
       setTimeout(() => { if (!stale(g)) endPlayerTurn(true); }, 1250);
@@ -623,6 +812,7 @@
       return;
     }
 
+    startTimer(Game.me);
     const dbl = dice[0] === dice[1] ? " דאבל — ארבעה מהלכים!" : "";
     const hint = Game.state.bar[Game.me] > 0
       ? "יש לך חייל על הבר — חובה להכניס אותו"
@@ -634,6 +824,7 @@
 
   async function autoPlay(moves, g) {
     Game.phase = "auto";          // חוסם קלט בזמן שהמהלך הכפוי משוחק
+    stopTimer();
     updateButtons();
     for (const m of moves) {
       await delay(T.aiStep);
@@ -674,6 +865,7 @@
 
     if (Game.options.length === 0) {
       Game.phase = "committing";
+      stopTimer();
       updateButtons();
       setTimeout(() => { if (!stale(g)) endPlayerTurn(false); }, T.move + T.settle);
     } else {
@@ -699,6 +891,7 @@
     Game.state = Game.view;
     Game.selected = null;
     Game.phase = Game.mode === "online" ? "remote" : "ai";
+    stopTimer();
     updateButtons();
     clearMarks();
 
@@ -729,6 +922,7 @@
 
     if (Game.mode === "online") {
       status("ממתין ליריב…");
+      startTimer(-Game.me);
       return;
     }
     setTimeout(() => { if (!stale(g)) aiTurn(); }, noMoves ? 400 : T.handoff);
@@ -737,6 +931,7 @@
   /* מריץ תור של הצד השני — בין אם המחשב בחר אותו ובין אם הגיע מהרשת */
   async function playOpponentTurn(dice, moves, g, label) {
     const opp = -Game.me;
+    stopTimer();
     Game.phase = Game.mode === "online" ? "remote" : "ai";
     Game.dice = dice;
     Game.diceWho = opp;
@@ -782,6 +977,66 @@
       ? []
       : chooseAiTurn(Game.state, -Game.me, dice, Game.level, tr).moves;
     await playOpponentTurn(dice, moves, g, "המחשב");
+  }
+
+  /* ---------- טיימר תור ----------
+     רץ עבור שני הצדדים כדי שאפשר יהיה לראות מי משתהה, אבל אוכף רק את
+     התור שלי: כשהזמן נגמר המנוע בוחר במקומי ומסיים את התור. */
+
+  function stopTimer() {
+    if (Game.timer && Game.timer.raf) cancelAnimationFrame(Game.timer.raf);
+    Game.timer = null;
+    for (const el of [stripEls.mine, stripEls.theirs]) {
+      if (!el) continue;
+      el.classList.remove("timing", "urgent");
+      el.style.removeProperty("--t");
+    }
+  }
+
+  function startTimer(who) {
+    stopTimer();
+    if (!Game.turnSecs || Game.phase === "over") return;
+    const g = Game.gen;
+    Game.timer = { until: Date.now() + Game.turnSecs * 1000, who, raf: 0, lastTick: 99 };
+    const strip = stripOf(who);
+    strip.classList.add("timing");
+
+    const step = () => {
+      if (!Game.timer || stale(g)) return;
+      const left = (Game.timer.until - Date.now()) / 1000;
+      const frac = Math.max(0, Math.min(1, left / Game.turnSecs));
+      strip.style.setProperty("--t", frac);
+      const secs = Math.ceil(Math.max(0, left));
+      strip.classList.toggle("urgent", secs <= 10);
+
+      if (secs <= 5 && secs !== Game.timer.lastTick && secs > 0 && isMine(who)) {
+        Game.timer.lastTick = secs;
+        Sfx.tick(secs <= 3);
+      }
+      if (left <= 0) { const w = who; stopTimer(); onTimeout(w); return; }
+      Game.timer.raf = requestAnimationFrame(step);
+    };
+    step();
+  }
+
+  function onTimeout(who) {
+    if (!isMine(who)) {
+      /* היריב איטי — רק מודיעים, לא מחליטים בשבילו */
+      status(`${Game.oppName} לוקח את הזמן…`);
+      return;
+    }
+    const g = Game.gen;
+    if (Game.phase === "playerRoll") { playerRoll(); return; }
+    if (Game.phase !== "playerMove") return;
+
+    /* מחזירים את התור להתחלה ונותנים למנוע לבחור — עדיף מלהשאיר תור חצי־מוזז */
+    Game.prefix = []; Game.chunks = [];
+    Game.view = Game.turnStart;
+    Game.selected = null;
+    refreshOptions();
+    status("נגמר הזמן — המהלך נבחר אוטומטית");
+    const choice = chooseAiTurn(Game.turnStart, Game.me, Game.dice, "medium", Game.turnsResult);
+    autoPlay(choice.moves, g);
   }
 
   function flashHit() {
@@ -984,15 +1239,19 @@
     $("#m-close").onclick = hideModal;
   }
 
-  function gameOver(winColor) {
+  function gameOver(winColor, reason) {
     Game.phase = "over";
     Game.dice = [];
+    stopTimer();
     clearTimeout(Game.rollTimer);
     updateButtons();
     hideToast();
     render();
-    const kind = winKind(Game.state, winColor);
-    const kindTxt = { 1: "ניצחון רגיל", 2: "מארס — ניצחון כפול", 3: "מארס טורקי — ניצחון משולש" }[kind];
+    /* פרישה נספרת כניצחון רגיל, בלי לבדוק את הלוח */
+    const kind = reason === "resign" ? 1 : winKind(Game.state, winColor);
+    const kindTxt = reason === "resign"
+      ? (winColor === Game.me ? `${Game.oppName} פרש מהמשחק` : "פרשת מהמשחק")
+      : { 1: "ניצחון רגיל", 2: "מארס — ניצחון כפול", 3: "מארס טורקי — ניצחון משולש" }[kind];
     const sum = summarizeRatings(Game.ratings);
 
     /* רישום התוצאה לסטטיסטיקה המצטברת. הפילוח לפי רמת קושי נוגע רק
@@ -1023,25 +1282,35 @@
     Stats.save();
 
     won ? Sfx.win() : Sfx.lose();
-    const iWon = winColor === Game.me;
-    status(iWon ? "ניצחת!" : `${OPP_NAME()} ניצח`);
+    status(won ? "ניצחת!" : `${Game.oppName} ניצח`);
     showModal(`
-      <h2>${iWon ? "ניצחת! 🎉" : `${OPP_NAME()} ניצח`}</h2>
+      <h2>${won ? "ניצחת! 🎉" : `${Game.oppName} ניצח`}</h2>
       <div class="win-kind">${kindTxt}</div>
       ${summaryHtml(sum)}
       <div class="actions">
-        <button class="pill-btn wide gold" id="m-new">משחק חדש</button>
-        <button class="pill-btn" id="m-close">סגור</button>
-      </div>`);
-    $("#m-new").onclick = () => (Game.mode === "online" ? goHome() : newGame());
-    $("#m-close").onclick = hideModal;
+        <button class="pill-btn wide gold" id="m-again">משחק חוזר</button>
+        <button class="pill-btn wide" id="m-home">${online ? "יציאה ללובי" : "מסך הבית"}</button>
+      </div>
+      <p class="note" id="m-note" hidden></p>`);
+    $("#m-again").onclick = () => (online ? requestRematch() : newGame());
+    $("#m-home").onclick = goHome;
+  }
+
+  /* ---------- פרישה ---------- */
+
+  function resign() {
+    if (!["playerMove", "playerRoll", "ai", "remote", "rolling", "auto", "blocked", "committing"].includes(Game.phase)) return;
+    hideSheet();
+    if (!confirm("לפרוש מהמשחק? ההפסד ייספר בסטטיסטיקה.")) return;
+    if (Game.mode === "online") netSend({ t: "resign" });
+    gameOver(-Game.me, "resign");
   }
 
   /* ==================== משחק מול חבר ====================
      שני הצדדים מריצים את אותו מנוע חוקים על אותו מצב התחלתי, ולכן די
      להעביר ברשת קוביות ומהלכים. המארח מגריל מי פותח ומודיע לאורח. */
 
-  const OPP_NAME = () => (Game.mode === "online" ? "היריב" : "המחשב");
+  const myName = () => Profiles.active().name;
 
   function netSend(msg) {
     if (Game.net && Game.net.tr) { try { Game.net.tr.send(msg); } catch (_) {} }
@@ -1084,34 +1353,77 @@
     switch (m.t) {
       case "hello":
         /* רק המארח מגריל, וגם אם ההודעה חוזרת פעמיים לא מתחילים משחק שני */
+        Game.net.theirName = m.name || "יריב";
         if (Game.net.role !== "host" || Game.net.started) {
-          if (Game.net.role === "host") netSend({ t: "welcome", first: Game.net.first });
+          if (Game.net.role === "host") netSend({ t: "welcome", first: Game.net.first, name: myName() });
           return;
         }
         Game.net.first = Math.random() < 0.5 ? WHITE : BLACK;
         Game.net.started = true;
-        netSend({ t: "welcome", first: Game.net.first });
+        netSend({ t: "welcome", first: Game.net.first, name: myName() });
         startOnlineGame(WHITE, Game.net.first);
         break;
 
       case "welcome":
         if (Game.net.role !== "guest" || Game.net.started) return;
+        Game.net.theirName = m.name || "יריב";
         Game.net.started = true;
         startOnlineGame(BLACK, m.first);
         break;
 
       case "turn":
         if (Game.phase !== "remote") return;      // הודעה כפולה או מאוחרת
-        playOpponentTurn(m.dice, m.moves || [], Game.gen, OPP_NAME());
+        playOpponentTurn(m.dice, m.moves || [], Game.gen, Game.oppName);
+        break;
+
+      case "resign":
+        if (Game.net.started && Game.phase !== "over") gameOver(Game.me, "resign");
+        break;
+
+      /* משחק חוזר: כל צד מסמן רצון, והמארח מכריז כששניהם מוכנים */
+      case "rematch":
+        Game.net.theirRematch = true;
+        noteRematch();
+        if (Game.net.role === "host" && Game.net.myRematch) hostStartRematch();
+        break;
+
+      case "rematchGo":
+        if (Game.net.role !== "guest") return;
+        Game.net.myRematch = Game.net.theirRematch = false;
+        startOnlineGame(BLACK, m.first);
         break;
 
       case "bye":
         if (Game.net.started) {
           $("#net-warn").hidden = false;
-          $("#net-warn-text").textContent = "היריב עזב את המשחק";
+          $("#net-warn-text").textContent = `${Game.oppName} עזב את המשחק`;
         }
         break;
     }
+  }
+
+  function requestRematch() {
+    if (!Game.net) return goHome();
+    Game.net.myRematch = true;
+    netSend({ t: "rematch" });
+    noteRematch();
+    if (Game.net.role === "host" && Game.net.theirRematch) hostStartRematch();
+  }
+
+  function hostStartRematch() {
+    const first = Math.random() < 0.5 ? WHITE : BLACK;
+    Game.net.myRematch = Game.net.theirRematch = false;
+    netSend({ t: "rematchGo", first });
+    startOnlineGame(WHITE, first);
+  }
+
+  function noteRematch() {
+    const n = $("#m-note");
+    if (!n || !Game.net) return;
+    n.hidden = false;
+    n.textContent = Game.net.myRematch
+      ? `ממתין ל${Game.oppName}…`
+      : `${Game.oppName} רוצה משחק חוזר`;
   }
 
   function startOnlineGame(myColor, first) {
@@ -1130,7 +1442,9 @@
     Game.startedAt = Date.now();
 
     layoutPoints();                      // הלוח מסתובב לצד של השחקן
-    setOpponentLabel("יריב", "🙋");
+    Game.oppName = (Game.net && Game.net.theirName) || "יריב";
+    setOpponentLabel(Game.oppName, "🙋");
+    setMeLabel();
     $("#title-level").textContent = "מול חבר";
     $("#net-warn").hidden = true;
     hideToast(); hideModal(); hideSheet();
@@ -1153,6 +1467,12 @@
   function setOpponentLabel(name, emoji) {
     $("#strip-ai .nm").textContent = name;
     $("#strip-ai .avatar").textContent = emoji;
+  }
+
+  function setMeLabel() {
+    const p = Profiles.active();
+    $("#strip-me .nm").textContent = p.name;
+    $("#strip-me .avatar").textContent = p.avatar;
   }
 
   /* ---------- מסך הלובי ---------- */
@@ -1194,7 +1514,7 @@
     $("#join-status").textContent = "מתחבר…";
     try {
       await netOpen("guest", code);
-      netSend({ t: "hello" });
+      netSend({ t: "hello", name: myName() });
       /* אם אף אחד לא עונה, כנראה שאין חדר כזה */
       setTimeout(() => {
         if (Game.net && !Game.net.started) $("#join-status").textContent = "אין תשובה — בדקו את הקוד";
@@ -1240,6 +1560,7 @@
   /* עוזב את המשחק הנוכחי: מבטל טיימרים תלויים כדי שהמחשב לא ימשיך לשחק ברקע */
   function goHome() {
     Game.gen++;
+    stopTimer();
     clearTimeout(Game.rollTimer);
     netTeardown();
     Game.phase = "idle";
@@ -1253,8 +1574,10 @@
     Game.me = WHITE;
     Game.silentCoach = false;
     Game.level = level;
+    Game.oppName = "המחשב";
     layoutPoints();
     setOpponentLabel("מחשב", "🤖");
+    setMeLabel();
     $("#net-warn").hidden = true;
     syncLevelUi(level);
     $("#level-backdrop").hidden = true;
@@ -1272,11 +1595,62 @@
   function renderHomeQuick() {
     const d = Stats.d;
     const avg = Stats.avgScore();
+    const p = Profiles.active();
+    $("#who-av").textContent = p.avatar;
+    $("#who-name").textContent = p.name;
     $("#home-quick").innerHTML = `
       <div class="q"><b>${d.games}</b><span>משחקים</span></div>
       <div class="q"><b>${Stats.winRate()}%</b><span>ניצחונות</span></div>
       <div class="q"><b>${avg == null ? "—" : avg}</b><span>ציון ממוצע</span></div>`;
   }
+
+  /* ---------- ניהול פרופילים ---------- */
+
+  function renderProfiles() {
+    const host = $("#profiles-list");
+    host.innerHTML = Profiles.d.list.map(p => {
+      const s = p.stats;
+      const rate = Stats.winRate(s);
+      return `<div class="prof-row ${p.id === Profiles.d.active ? "on" : ""}" data-id="${p.id}">
+        <button class="prof-av" data-act="avatar">${p.avatar}</button>
+        <button class="prof-main" data-act="pick">
+          <span class="prof-name">${escapeHtml(p.name)}</span>
+          <span class="prof-sub">${s.games} משחקים · ${rate}% ניצחון${s.rated ? ` · ציון ${Stats.avgScore(s)}` : ""}</span>
+        </button>
+        <button class="prof-ico" data-act="rename" aria-label="שנה שם">✏️</button>
+        ${Profiles.d.list.length > 1 ? `<button class="prof-ico" data-act="del" aria-label="מחק">🗑</button>` : ""}
+      </div>`;
+    }).join("");
+  }
+
+  const escapeHtml = t => String(t).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function showProfiles() { renderProfiles(); $("#profiles-backdrop").hidden = false; }
+  function hideProfiles() { $("#profiles-backdrop").hidden = true; }
+
+  $("#who-chip").onclick = showProfiles;
+  $("#profiles-backdrop").onclick = e => { if (e.target.id === "profiles-backdrop") hideProfiles(); };
+  $("#profile-add").onclick = () => {
+    const name = prompt("שם השחקן:", "");
+    if (name && name.trim()) { Profiles.add(name.trim()); renderProfiles(); renderHomeQuick(); }
+  };
+  $("#profiles-list").onclick = e => {
+    const btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    const id = btn.closest(".prof-row").dataset.id;
+    const act = btn.dataset.act;
+    if (act === "pick") { Profiles.setActive(id); hideProfiles(); renderHomeQuick(); return; }
+    if (act === "avatar") Profiles.cycleAvatar(id);
+    if (act === "rename") {
+      const cur = Profiles.d.list.find(p => p.id === id);
+      const name = prompt("שם השחקן:", cur ? cur.name : "");
+      if (name && name.trim()) Profiles.rename(id, name.trim());
+    }
+    if (act === "del" && confirm("למחוק את השחקן והסטטיסטיקה שלו?")) Profiles.remove(id);
+    renderProfiles();
+    renderHomeQuick();
+  };
 
   $("#btn-play").onclick = () => { $("#level-backdrop").hidden = false; };
   $("#btn-stats").onclick = () => showScreen("stats");
@@ -1430,6 +1804,19 @@
     syncLevelUi(b.dataset.v);
   };
 
+  $("#sheet-resign").onclick = resign;
+
+  $("#timer-seg").onclick = e => {
+    const b = e.target.closest("button[data-v]");
+    if (!b) return;
+    Game.turnSecs = Number(b.dataset.v);
+    [...e.currentTarget.children].forEach(c => c.classList.toggle("on", c === b));
+    /* מחילים מיד על התור הנוכחי */
+    if (Game.phase === "playerMove") startTimer(Game.me);
+    else if (Game.phase === "remote") startTimer(-Game.me);
+    else stopTimer();
+  };
+
   $("#auto-toggle").onclick = e => {
     const t = e.currentTarget;
     Game.autoRoll = !Game.autoRoll;
@@ -1481,8 +1868,9 @@
   showScreen("home");
 
   window.__bg = {
-    Game, GEO, Stats, render, newGame, playerRoll, aiTurn, endPlayerTurn,
+    Game, GEO, Stats, Profiles, Sfx, render, newGame, playerRoll, aiTurn, endPlayerTurn,
     updateButtons, gameOver, showStatsModal, showScreen, startGame, fitBoard,
+    startTimer, stopTimer, resign, requestRematch,
   };
 
 })();
