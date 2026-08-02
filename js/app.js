@@ -1355,6 +1355,171 @@
     $("#m-share").onclick = shareSummary;
   }
 
+  /* ==================== מדריך למתחילים ====================
+     רץ על הלוח האמיתי לפני שהמשחק מתחיל. חלק מהשלבים מציבים עמדת הדגמה
+     כדי להראות חסימה, הכאה, בר והורדה — דברים שלא קיימים בפתיחה. */
+
+  /* אזורים על הלוח, באחוזים, לצורך הזרקור */
+  const HOME_RECT = { x1: GEO.rightQuadX, x2: GEO.rightEdge, y1: 100 - GEO.padY - GEO.rowH, y2: 100 - GEO.padY };
+  const OUTER_RECT = { x1: GEO.leftQuadX, x2: GEO.barX, y1: GEO.padY, y2: GEO.padY + GEO.rowH };
+  const BAR_RECT = { x1: GEO.barX, x2: GEO.barX + GEO.barW, y1: 20, y2: 80 };
+  const DICE_RECT = { x1: GEO.rightQuadX, x2: GEO.rightEdge, y1: 38, y2: 62 };
+
+  function demoState(spec) {
+    const s = { points: new Array(24).fill(0), bar: { 1: 0, "-1": 0 }, off: { 1: 0, "-1": 0 } };
+    for (const k of Object.keys(spec.points || {})) s.points[+k] = spec.points[k];
+    if (spec.bar) Object.assign(s.bar, spec.bar);
+    if (spec.off) Object.assign(s.off, spec.off);
+    return s;
+  }
+
+  const TUT_STEPS = [
+    {
+      title: "ברוך הבא לשש-בש",
+      body: "המטרה פשוטה: להביא את כל 15 החיילים שלך אל הבית, ואז להוריד אותם מהלוח. מי שמוריד את כולם ראשון — מנצח.",
+    },
+    {
+      title: "אלה החיילים שלך",
+      body: "החיילים הבהירים הם שלך, הכהים של היריב. בהתחלה כולם מפוזרים על הלוח.",
+      rect: () => ({ x1: GEO.leftQuadX, x2: GEO.rightEdge, y1: GEO.padY, y2: 100 - GEO.padY }),
+    },
+    {
+      title: "הבית שלך",
+      body: "שש הנקודות למטה מימין (1 עד 6) הן הבית שלך. לשם צריך להביא את כל החיילים.",
+      rect: () => HOME_RECT,
+    },
+    {
+      title: "לאן זזים",
+      body: "החיילים שלך נעים תמיד מהמספרים הגבוהים לנמוכים — מ-24 לכיוון 1, כלומר אל הבית. היריב נע בכיוון ההפוך.",
+      rect: () => OUTER_RECT,
+    },
+    {
+      title: "הקוביות",
+      body: "בכל תור מוטלות שתי קוביות. כל קובייה היא מהלך אחד: קובייה 5 מזיזה חייל חמש נקודות קדימה. יצא דאבל? מקבלים ארבעה מהלכים.",
+      rect: () => DICE_RECT,
+      dice: [5, 3],
+    },
+    {
+      title: "איך מזיזים",
+      body: "חייל שאפשר להזיז מסומן בטבעת זהב. לוחצים עליו ורואים לאן הוא יכול ללכת, ואז לוחצים על היעד. אפשר גם לגרור.",
+    },
+    {
+      title: "נקודה חסומה",
+      body: "נקודה שיש עליה שני חיילי יריב או יותר חסומה — אסור לנחות עליה. כאן היריב חוסם את נקודה 5.",
+      state: () => demoState({ points: { 3: 1, 5: 4, 7: 3, 12: 5, 23: 2, 0: -1, 4: -2, 11: -5, 16: -3, 18: -4 } }),
+      rect: () => HOME_RECT,
+    },
+    {
+      title: "הכאה",
+      body: "חייל יריב בודד נקרא חשוף. אם תנחת עליו — הוא נשלח לבר ומתחיל את כל הדרך מהתחלה. זה המהלך החזק במשחק.",
+      state: () => demoState({ points: { 3: 1, 5: 4, 7: 3, 12: 5, 23: 2, 0: -1, 4: -1, 11: -5, 16: -3, 18: -5 } }),
+      rect: () => HOME_RECT,
+    },
+    {
+      title: "הבר",
+      body: "אם החייל שלך הוכה הוא עולה לבר, באמצע הלוח. חובה להחזיר אותו למשחק לפני שמזיזים כל חייל אחר.",
+      state: () => demoState({ points: { 5: 4, 7: 3, 12: 5, 23: 2, 0: -2, 11: -5, 16: -3, 18: -5 }, bar: { 1: 1 } }),
+      rect: () => BAR_RECT,
+    },
+    {
+      title: "הורדה מהלוח",
+      body: "כשכל 15 החיילים שלך בבית, מתחילים להוריד אותם. לוחצים על חייל וגוררים אל הפס שברצועה שלך למטה.",
+      state: () => demoState({ points: { 0: 3, 1: 3, 2: 3, 3: 2, 4: 2, 5: 2, 18: -5, 20: -5, 22: -5 } }),
+      rect: () => HOME_RECT,
+    },
+    {
+      title: "המאמן שלך",
+      body: "בסוף כל תור תקבל ציון מ-0 עד 100 והסבר קצר מה היה עדיף. זה לא משפיע על המשחק — רק עוזר להשתפר.",
+    },
+    {
+      title: "זהו, אפשר להתחיל",
+      body: "ברמה הקלה המחשב סלחן ועושה טעויות, אז זה המקום המושלם ללמוד. בהצלחה!",
+    },
+  ];
+
+  const Tutorial = {
+    i: 0, onDone: null, active: false,
+
+    start(onDone) {
+      this.onDone = onDone;
+      this.i = 0;
+      this.active = true;
+      $("#tut-dots").innerHTML = TUT_STEPS.map(() => "<i></i>").join("");
+      $("#tutorial").hidden = false;
+      this.show();
+      window.addEventListener("resize", this.reposition);
+    },
+
+    show() {
+      const step = TUT_STEPS[this.i];
+
+      /* עמדת הדגמה, אם השלב מבקש כזו */
+      Game.view = step.state ? step.state() : initialState();
+      Game.state = Game.view;
+      Game.dice = step.dice || [];
+      Game.diceWho = WHITE;
+      Game.diceUsed = [];
+      Game.sources = new Set();
+      render();
+
+      $("#tut-title").textContent = step.title;
+      $("#tut-body").textContent = step.body;
+      [...$("#tut-dots").children].forEach((d, k) => d.classList.toggle("on", k === this.i));
+      $("#tut-next").textContent = this.i === TUT_STEPS.length - 1 ? "מתחילים" : "הבא";
+      $("#tut-skip").hidden = this.i === TUT_STEPS.length - 1;
+      this.reposition();
+    },
+
+    /* הזרקור הוא חור בשכבה הכהה, ולכן צריך מיקום בפיקסלים אמיתיים */
+    reposition() {
+      const step = TUT_STEPS[Tutorial.i];
+      const spot = $("#tut-spot");
+      const card = $("#tut-card");
+      if (!step || !step.rect) {
+        /* חייבים לנקות את המיקום מהשלב הקודם, אחרת נשאר מלבן רפאים */
+        spot.removeAttribute("style");
+        spot.classList.add("full");
+        card.classList.remove("at-top");
+        return;
+      }
+      spot.classList.remove("full");
+      const b = boardEl.getBoundingClientRect();
+      const r = step.rect();
+      const left = b.left + b.width * r.x1 / 100;
+      const top = b.top + b.height * r.y1 / 100;
+      const w = b.width * (r.x2 - r.x1) / 100;
+      const h = b.height * (r.y2 - r.y1) / 100;
+      spot.hidden = false;
+      spot.style.left = (left - 6) + "px";
+      spot.style.top = (top - 6) + "px";
+      spot.style.width = (w + 12) + "px";
+      spot.style.height = (h + 12) + "px";
+      /* הכרטיס עובר לצד הנגדי כדי לא להסתיר את מה שמסבירים עליו */
+      card.classList.toggle("at-top", top + h / 2 > window.innerHeight / 2);
+    },
+
+    next() {
+      if (this.i >= TUT_STEPS.length - 1) return this.end();
+      this.i++;
+      Sfx.place();
+      this.show();
+    },
+
+    end() {
+      this.active = false;
+      $("#tutorial").hidden = true;
+      window.removeEventListener("resize", this.reposition);
+      Profiles.active().stats.tutorialDone = true;
+      Profiles.save();
+      const done = this.onDone;
+      this.onDone = null;
+      if (done) done();
+    },
+  };
+
+  $("#tut-next").onclick = () => Tutorial.next();
+  $("#tut-skip").onclick = () => Tutorial.end();
+
   /* ---------- שיתוף סיכום כתמונה ----------
      מצייר כרטיס על קנבס ומעביר אותו ל-Web Share. אם השיתוף לא נתמך,
      התמונה יורדת כקובץ. */
@@ -1867,6 +2032,19 @@
     syncLevelUi(level);
     $("#level-backdrop").hidden = true;
     showScreen("game");
+
+    /* ברמה הקלה מניחים שזה המשחק הראשון אי פעם — מדריך לפני שמתחילים */
+    if (level === "easy" && !Profiles.active().stats.tutorialDone) {
+      Game.phase = "idle";
+      Game.dice = [];
+      Game.state = initialState();
+      Game.view = Game.state;
+      stopTimer();
+      updateButtons();
+      render();
+      Tutorial.start(() => newGame());
+      return;
+    }
     newGame();
   }
 
@@ -2142,6 +2320,19 @@
 
   $("#sheet-resign").onclick = resign;
 
+  /* פתיחת המדריך ידנית — עוצר את המשחק הנוכחי ומתחיל אותו מחדש אחריו */
+  $("#sheet-tut").onclick = () => {
+    hideSheet();
+    Game.gen++;
+    stopTimer();
+    clearTimeout(Game.rollTimer);
+    Game.phase = "idle";
+    Game.dice = [];
+    updateButtons();
+    hideToast(); hideModal();
+    Tutorial.start(() => newGame());
+  };
+
   const BOARD_KEY = "shesh-besh-board";
   function setBoardTheme(v) {
     document.body.dataset.board = v;
@@ -2232,6 +2423,7 @@
     updateButtons, gameOver, showStatsModal, showScreen, startGame, fitBoard,
     startTimer, stopTimer, resign, requestRematch,
     enterReplay, exitReplay, replayGoto, drawSummaryCard, shareSummary, setBoardTheme,
+    Tutorial, TUT_STEPS,
   };
 
 })();

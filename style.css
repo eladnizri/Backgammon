@@ -1273,3 +1273,72 @@ body[data-board="ivory"] {
   50%      { box-shadow: 0 10px 30px -8px rgba(76, 200, 128, .9); }
 }
 .pill-btn.confirm svg { stroke-width: 2.6; }
+
+/* ---------- מדריך למתחילים ---------- */
+
+#tutorial {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+}
+
+/* הזרקור הוא חור: מסגרת שקופה עם צל ענק שמכהה את כל השאר */
+#tut-spot {
+  position: fixed;
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(4, 7, 10, .8), 0 0 0 2px var(--gold) inset;
+  border: 2px solid var(--gold);
+  pointer-events: none;
+  transition: left .3s var(--ease), top .3s var(--ease),
+              width .3s var(--ease), height .3s var(--ease);
+  animation: spot-in .3s var(--ease);
+}
+@keyframes spot-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* בלי זרקור — מכהים את כל המסך ברקע מלא, לא בצל */
+#tut-spot.full {
+  inset: 0;
+  width: auto; height: auto;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: rgba(4, 7, 10, .8);
+}
+
+#tut-card {
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: min(92vw, 430px);
+  margin: 0 auto;
+  padding: 18px 20px 16px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #1b232d, #11171e);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 60px -18px rgba(0, 0, 0, .95);
+  animation: tut-in .3s var(--ease);
+}
+#tut-card.at-top { bottom: auto; top: calc(16px + env(safe-area-inset-top)); }
+@keyframes tut-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+#tut-dots { display: flex; gap: 5px; margin-bottom: 12px; }
+#tut-dots i {
+  flex: 1;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, .12);
+  transition: background .25s;
+}
+#tut-dots i.on { background: var(--gold); }
+
+#tut-card h3 { margin: 0 0 6px; font-size: 1.08rem; font-weight: 800; }
+#tut-card p { margin: 0; font-size: .87rem; line-height: 1.55; color: var(--text-dim); }
+.tut-actions { display: flex; gap: 10px; margin-top: 16px; }
+.tut-actions .pill-btn { flex: 1; justify-content: center; }
+.tut-actions .pill-btn.gold { flex: 2; }
+
+@media (max-height: 700px) {
+  #tut-card { padding: 14px 16px 13px; }
+  #tut-card h3 { font-size: 1rem; }
+  #tut-card p { font-size: .82rem; line-height: 1.45; }
+}
