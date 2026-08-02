@@ -325,12 +325,52 @@
       buzz(9);
     },
 
+    /* רעש שמסונן דרך פס נע — משמש ל"שריקה" של החייל שנשלח לבר */
+    swoop(t, from, to, dur, gain) {
+      const c = this.ctx;
+      const src = c.createBufferSource();
+      src.buffer = this.noiseBuf;
+      src.loop = true;
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.Q.value = 7;
+      bp.frequency.setValueAtTime(from, t);
+      bp.frequency.exponentialRampToValueAtTime(to, t + dur);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(gain, t + dur * 0.18);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(bp).connect(g);
+      g.connect(this.master);
+      g.connect(this.verb);
+      src.start(t); src.stop(t + dur + 0.03);
+    },
+
+    /* בום נמוך עם צניחת גובה — המסה של הפגיעה */
+    boom(t, from, to, dur, gain) {
+      const c = this.ctx;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(from, t);
+      o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.7);
+      g.gain.setValueAtTime(gain, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g);
+      g.connect(this.master);
+      o.start(t); o.stop(t + dur + 0.02);
+    },
+
+    /* הכאה — האירוע הכי דרמטי במשחק, ולכן מורכב מארבע שכבות:
+       פגיעה חדה, נקישה בהירה, בום נמוך, ושריקה יורדת של החייל שעף לבר. */
     hit() {
       const c = this.boot(); if (!c) return;
       const t = c.currentTime + 0.005;
-      this.clack(t, { gain: 0.8, freq: 850, q: 2.5, dur: 0.13, body: 140 });
-      this.clack(t + 0.06, { gain: 0.32, freq: 1900, q: 6, dur: 0.06, body: 240 });
-      buzz([14, 45, 26]);
+      this.clack(t, { gain: 0.9, freq: 680, q: 2, dur: 0.16, body: 105 });
+      this.clack(t + 0.014, { gain: 0.5, freq: 3100, q: 9, dur: 0.05 });
+      this.boom(t, 190, 55, 0.34, 0.4);
+      this.swoop(t + 0.05, 2800, 320, 0.3, 0.22);
+      this.tone(t + 0.055, 174.6, 0.36, 0.05, "triangle");
+      buzz([18, 40, 30, 55, 22]);
     },
 
     off() {
@@ -784,6 +824,8 @@
     Game.dice = dice;
     Game.diceWho = Game.me;
     Game.prefix = [];
+    /* מודיעים על ההטלה מיד, כדי שהיריב יראה את הקוביות בזמן שאני חושב */
+    if (Game.mode === "online") netSend({ t: "roll", dice: dice.slice() });
     renderDice(true);
     await delay(T.move);
     if (stale(g)) return;
@@ -949,7 +991,7 @@
   }
 
   /* מריץ תור של הצד השני — בין אם המחשב בחר אותו ובין אם הגיע מהרשת */
-  async function playOpponentTurn(dice, moves, g, label) {
+  async function playOpponentTurn(dice, moves, g, label, preRolled) {
     const opp = -Game.me;
     const before = Game.state;
     stopTimer();
@@ -959,10 +1001,15 @@
     Game.diceUsed = [];
     updateButtons();
     render();
-    renderDice(true);
-    Sfx.roll();
-    status(`${label} הטיל <b>${dice[0]}-${dice[1]}</b>`);
-    await delay(T.aiThink);
+    /* אם כבר ראינו את ההטלה שלו אין טעם לזרוק את הקוביות שוב */
+    if (!preRolled) {
+      renderDice(true);
+      Sfx.roll();
+      status(`${label} הטיל <b>${dice[0]}-${dice[1]}</b>`);
+      await delay(T.aiThink);
+    } else {
+      await delay(160);
+    }
     if (stale(g)) return;
 
     if (!moves.length) {
@@ -1328,7 +1375,8 @@
     Stats.save();
 
     won ? Sfx.win() : Sfx.lose();
-    Game.lastResult = { won, kindTxt, sum, online };
+    const rec = online ? (Stats.d.vs || {})[Game.oppName] : null;
+    Game.lastResult = { won, kindTxt, sum, online, rec };
     status(won ? "ניצחת!" : `${Game.oppName} ניצח`);
     showGameOverModal();
   }
@@ -1339,6 +1387,11 @@
     showModal(`
       <h2>${r.won ? "ניצחת! 🎉" : `${Game.oppName} ניצח`}</h2>
       <div class="win-kind">${r.kindTxt}</div>
+      ${r.rec ? `<div class="h2h">
+          <span class="h2h-side"><b>${r.rec.w}</b>${escapeHtml(Profiles.active().name)}</span>
+          <span class="h2h-vs">מאזן</span>
+          <span class="h2h-side"><b>${r.rec.l}</b>${escapeHtml(Game.oppName)}</span>
+        </div>` : ""}
       ${summaryHtml(r.sum)}
       <div class="actions">
         <button class="pill-btn wide gold" id="m-again">משחק חוזר</button>
@@ -1817,10 +1870,26 @@
         startOnlineGame(BLACK, m.first);
         break;
 
-      case "turn":
-        if (Game.phase !== "remote") return;      // הודעה כפולה או מאוחרת
-        playOpponentTurn(m.dice, m.moves || [], Game.gen, Game.oppName);
+      /* היריב הטיל — מציגים את הקוביות שלו כבר עכשיו, לפני שבחר מהלך */
+      case "roll":
+        if (Game.phase !== "remote" || !m.dice) return;
+        Game.dice = m.dice.slice();
+        Game.diceWho = -Game.me;
+        Game.diceUsed = [];
+        Game.net.sawRoll = true;
+        render();
+        renderDice(true);
+        Sfx.roll();
+        status(`${Game.oppName} הטיל <b>${m.dice[0]}-${m.dice[1]}</b> — חושב…`);
         break;
+
+      case "turn": {
+        if (Game.phase !== "remote") return;      // הודעה כפולה או מאוחרת
+        const preRolled = !!Game.net.sawRoll;
+        Game.net.sawRoll = false;
+        playOpponentTurn(m.dice, m.moves || [], Game.gen, Game.oppName, preRolled);
+        break;
+      }
 
       case "resign":
         if (Game.net.started && Game.phase !== "over") gameOver(Game.me, "resign");
@@ -2001,6 +2070,8 @@
 
   const SCREENS = ["welcome", "home", "game", "stats", "online"];
   function showScreen(name) {
+    /* שכבות צפות שייכות למסך שממנו יצאנו — אחרת הן נשארות תלויות מעליו */
+    hideModal(); hideSheet(); hideProfiles();
     SCREENS.forEach(s => $("#screen-" + s).classList.toggle("on", s === name));
     if (name === "home") renderHomeQuick();
     if (name === "stats") renderStatsScreen();
@@ -2065,7 +2136,25 @@
       <div class="q"><b>${d.games}</b><span>משחקים</span></div>
       <div class="q"><b>${Stats.winRate()}%</b><span>ניצחונות</span></div>
       <div class="q"><b>${avg == null ? "—" : avg}</b><span>ציון ממוצע</span></div>`;
+
+    /* מאזן מול חברים ישר במסך הבית — לחיצה פותחת את הסטטיסטיקות */
+    const rivals = rivalList();
+    const host = $("#home-rivals");
+    host.hidden = !rivals.length;
+    if (rivals.length) {
+      host.innerHTML =
+        `<span class="rivals-cap">מול חברים</span>` +
+        rivals.slice(0, 4).map(([name, r]) =>
+          `<span class="rival ${r.w > r.l ? "lead" : r.w < r.l ? "trail" : ""}">` +
+          `${escapeHtml(name)} <b dir="ltr">${r.w}-${r.l}</b></span>`).join("");
+    }
   }
+
+  /* יריבים לפי מספר המשחקים, הרב ביותר קודם */
+  const rivalList = () =>
+    Object.entries(Stats.d.vs || {}).sort((a, b) => (b[1].w + b[1].l) - (a[1].w + a[1].l));
+
+  $("#home-rivals").onclick = () => showScreen("stats");
 
   /* ---------- מסך הפתיחה (הפעלה ראשונה) ---------- */
 
@@ -2191,7 +2280,19 @@
       return;
     }
     const avg = Stats.avgScore();
-    const totalRatedMoves = d.rated + d.forced;
+
+    const vs = rivalList();
+    const vsSection = vs.length ? `
+      <div class="stat-sec">
+        <h4>מאזן מול חברים</h4>
+        <div class="stat-rows">
+          ${vs.map(([name, r]) => {
+            const cls = r.w > r.l ? "lead" : r.w < r.l ? "trail" : "";
+            return `<div class="stat-row"><span>${escapeHtml(name)}</span>` +
+                   `<b class="${cls}" dir="ltr">${r.w}-${r.l}</b></div>`;
+          }).join("")}
+        </div>
+      </div>` : "";
 
     let html = `
       <div class="stat-sec">
@@ -2205,6 +2306,8 @@
           ${card(d.streak, "רצף נוכחי")}
         </div>
       </div>
+
+      ${vsSection}
 
       <div class="stat-sec">
         <h4>תוצאות</h4>
@@ -2244,21 +2347,6 @@
                 <span class="track"><span class="fill" style="width:${n / max * 100}%"></span></span>
                 <span class="val">${n}</span>
               </div>`;
-            }).join("")}
-          </div>
-        </div>`;
-    }
-
-    const vs = Object.entries(d.vs || {}).sort((a, b) => (b[1].w + b[1].l) - (a[1].w + a[1].l));
-    if (vs.length) {
-      html += `
-        <div class="stat-sec">
-          <h4>מאזן מול חברים</h4>
-          <div class="stat-rows">
-            ${vs.map(([name, r]) => {
-              const cls = r.w > r.l ? "lead" : r.w < r.l ? "trail" : "";
-              return `<div class="stat-row"><span>${escapeHtml(name)}</span>` +
-                     `<b class="${cls}" dir="ltr">${r.w}-${r.l}</b></div>`;
             }).join("")}
           </div>
         </div>`;

@@ -1342,3 +1342,74 @@ body[data-board="ivory"] {
   #tut-card h3 { font-size: 1rem; }
   #tut-card p { font-size: .82rem; line-height: 1.45; }
 }
+
+/* ---------- מאזן מול חברים ---------- */
+
+.rivals {
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  max-width: 380px;
+  padding: 11px 12px;
+  border-radius: 15px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  cursor: pointer;
+  transition: background .16s, transform .1s;
+}
+.rivals:active { transform: scale(.98); background: var(--surface-2); }
+.rivals-cap {
+  width: 100%;
+  font-size: .6rem;
+  letter-spacing: .1em;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+.rival {
+  font-size: .76rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid var(--line);
+}
+.rival b { font-variant-numeric: tabular-nums; margin-inline-start: 5px; }
+.rival.lead { border-color: rgba(78, 203, 130, .4); }
+.rival.lead b { color: #4ecb82; }
+.rival.trail { border-color: rgba(226, 80, 76, .4); }
+.rival.trail b { color: #e2504c; }
+
+/* מאזן ראש בראש במסך הסיום */
+.h2h {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 14px 0 4px;
+  padding: 12px 10px;
+  border-radius: 15px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.h2h-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: .72rem;
+  color: var(--text-dim);
+  min-width: 70px;
+}
+.h2h-side b {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.h2h-vs { font-size: .6rem; letter-spacing: .12em; color: var(--text-dim); }
