@@ -1066,6 +1066,25 @@ html[dir="rtl"] .toggle.on i { transform: translateX(-19px); }
 
 #modal h2 { margin: 0 0 4px; font-size: 1.3rem; font-weight: 800; }
 #modal .win-kind { color: var(--gold); font-size: .85rem; margin-bottom: 14px; }
+#modal .points-badge {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  margin: 0 auto 14px;
+  padding: 7px 16px;
+  border-radius: 99px;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+  color: var(--gold-hi);
+}
+#modal .points-badge.lost {
+  background: color-mix(in srgb, #b45 14%, transparent);
+  border-color: color-mix(in srgb, #b45 40%, transparent);
+  color: #e79;
+}
+#modal .points-badge .pts-n { font-size: 1.5rem; line-height: 1; font-variant-numeric: tabular-nums; }
+#modal .points-badge .pts-n::before { content: "+"; font-size: 1rem; opacity: .8; }
+#modal .points-badge.lost .pts-n::before { content: "\2212"; }
+#modal .points-badge .pts-lbl { font-size: .74rem; letter-spacing: .04em; }
 #modal .overall {
   width: 96px; height: 96px;
   margin: 14px auto 10px;

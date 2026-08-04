@@ -51,6 +51,7 @@
         doubles: 0, borneOff: 0, barEntries: 0,
         streak: 0, bestStreak: 0,
         playMs: 0, draws: 0,
+        pointsWon: 0, pointsLost: 0,   // ניקוד: רגיל 1, מארס 2, מארס טורקי 3
         vs: {},          // שם יריב -> { w, l, d }
       };
     },
@@ -1577,6 +1578,7 @@
     render();
     /* פרישה נספרת כניצחון רגיל, בלי לבדוק את הלוח */
     const kind = reason === "resign" ? 1 : winKind(Game.state, winColor);
+    const points = kind;      // רגיל 1, מארס 2, מארס טורקי 3
     const kindTxt = reason === "resign"
       ? (winColor === Game.me ? `${Game.oppName} פרש מהמשחק` : "פרשת מהמשחק")
       : { 1: "ניצחון רגיל", 2: "מארס — ניצחון כפול", 3: "מארס טורקי — ניצחון משולש" }[kind];
@@ -1601,12 +1603,14 @@
     }
     if (won) {
       Stats.add("wins"); lvl.w++;
+      Stats.add("pointsWon", points);
       if (online) Stats.add("onlineWins");
       Stats.d.winKind[kind] = (Stats.d.winKind[kind] || 0) + 1;
       Stats.d.streak = Math.max(0, Stats.d.streak) + 1;
       Stats.d.bestStreak = Math.max(Stats.d.bestStreak, Stats.d.streak);
     } else {
       Stats.add("losses");
+      Stats.add("pointsLost", points);
       Stats.d.lossKind[kind] = (Stats.d.lossKind[kind] || 0) + 1;
       Stats.d.streak = 0;
     }
@@ -1618,7 +1622,7 @@
 
     won ? Sfx.win() : Sfx.lose();
     const rec = online ? (Stats.d.vs || {})[Game.oppName] : null;
-    Game.lastResult = { won, kindTxt, sum, online, rec };
+    Game.lastResult = { won, kindTxt, points, sum, online, rec };
     status(won ? "ניצחת!" : `${Game.oppName} ניצח`);
     showGameOverModal();
   }
@@ -1629,6 +1633,10 @@
     showModal(`
       <h2>${r.draw ? "תיקו 🤝" : r.won ? "ניצחת! 🎉" : `${Game.oppName} ניצח`}</h2>
       <div class="win-kind">${r.kindTxt}</div>
+      ${!r.draw && r.points ? `<div class="points-badge ${r.won ? "won" : "lost"}">
+          <span class="pts-n">${r.points}</span>
+          <span class="pts-lbl">${r.points === 1 ? "נקודה" : "נקודות"}</span>
+        </div>` : ""}
       ${r.rec ? `<div class="h2h">
           <span class="h2h-side"><b>${r.rec.w}</b>${escapeHtml(Profiles.active().name)}</span>
           <span class="h2h-vs">מאזן${r.rec.d ? ` · ${r.rec.d} תיקו` : ""}</span>
@@ -2726,6 +2734,7 @@
           ${card(avg == null ? "—" : avg, "ציון ממוצע", true)}
           ${card(d.wins, "ניצחונות")}
           ${card(d.losses, "הפסדים")}
+          ${card(d.pointsWon || 0, "נקודות", true)}
           ${d.draws ? card(d.draws, "תיקו") : card(d.streak, "רצף נוכחי")}
         </div>
       </div>
@@ -2741,6 +2750,8 @@
           ${row("הפסד רגיל", d.lossKind[1] || 0)}
           ${row("הפסד במארס", d.lossKind[2] || 0)}
           ${row("הפסד במארס טורקי", d.lossKind[3] || 0)}
+          ${row("נקודות זכית", d.pointsWon || 0)}
+          ${row("נקודות הפסדת", d.pointsLost || 0)}
         </div>
       </div>
 
