@@ -16,10 +16,12 @@ const {
   WHITE, BLACK, initialState, cloneState, pipCount, generateTurns,
   uniqueFinalStates, legalSingleMoves, applyMove, isRace, evaluate,
   rateTurn, nextMoveOptions, chainOptionsFrom, winKind,
+  classifyRoll, relocateSingleMoves, isBlocked, aiChooseDouble, aiRelocate,
 } = vm.runInContext(`({
   WHITE, BLACK, initialState, cloneState, pipCount, generateTurns,
   uniqueFinalStates, legalSingleMoves, applyMove, isRace, evaluate,
   rateTurn, nextMoveOptions, chainOptionsFrom, winKind,
+  classifyRoll, relocateSingleMoves, isBlocked, aiChooseDouble, aiRelocate,
 })`, ctx);
 
 let failed = 0;
@@ -148,6 +150,49 @@ console.log("סוג ניצחון:");
   assert(winKind(s, WHITE) === 2, "מארס");
   s.points[20] = -14; s.points[3] = -1;
   assert(winKind(s, WHITE) === 3, "מארס טורקי (חייל בבית המנצח)");
+}
+
+console.log("שש-בש טורקי — סיווג זריקות:");
+{
+  assert(classifyRoll([1, 2]) === "swap" && classifyRoll([2, 1]) === "swap", "1-2 → החלפת צדדים");
+  assert(classifyRoll([3, 4]) === "choose" && classifyRoll([4, 3]) === "choose", "3-4 → בחירת דאבל");
+  assert(classifyRoll([5, 6]) === "relocate" && classifyRoll([6, 5]) === "relocate", "5-6 → הזזה חופשית");
+  assert(classifyRoll([4, 4]) === "double", "דאבל מזוהה");
+  assert(classifyRoll([2, 5]) === "normal" && classifyRoll([1, 6]) === "normal", "זריקה רגילה");
+}
+
+console.log("שש-בש טורקי — הזזה חופשית (5-6):");
+{
+  const s = emptyState();
+  s.points[23] = 1;         // חייל לבן בודד רחוק
+  s.points[10] = 2;
+  s.points[5] = -2;         // נקודה חסומה על ידי השחור
+  s.points[8] = -1;         // חייל שחור בודד (ניתן להכאה)
+  s.points[0] = -12; s.points[1] = 0;
+  const ms = relocateSingleMoves(s, WHITE);
+  assert(ms.every(m => m.to !== 5), "אי אפשר להעביר לנקודה חסומה");
+  assert(ms.some(m => m.from === 23 && m.to === 20), "אפשר להעביר קדימה");
+  assert(ms.some(m => m.from === 10 && m.to === 15), "אפשר להעביר גם אחורה");
+  assert(ms.some(m => m.to === 8), "אפשר לנחות על חייל יריב בודד (הכאה)");
+  // הכאה בפועל
+  const r = applyMove(s, WHITE, { from: 10, to: 8 });
+  assert(r.hit && r.state.bar[BLACK] === 1, "העברה לחייל בודד מכה אותו לבר");
+}
+
+console.log("שש-בש טורקי — בחירות AI:");
+{
+  const s = initialState();
+  const pick = aiChooseDouble(s, WHITE);
+  assert(pick.die >= 1 && pick.die <= 6 && pick.final, "בחירת דאבל מחזירה ערך חוקי ועמדה");
+  const rel = aiRelocate(s, WHITE);
+  assert(rel.moves.length === 2, "הזזה חופשית של המחשב מעבירה שני חיילים");
+  assert(rel.moves.every(m => m.relocate), "המהלכים מסומנים כהעברה חופשית");
+  // הלוח נשאר עם 15 חיילים לכל צד אחרי ההעברה
+  let w = 0, b = 0;
+  for (const v of rel.state.points) { if (v > 0) w += v; else b += -v; }
+  w += rel.state.bar[WHITE] + rel.state.off[WHITE];
+  b += rel.state.bar[BLACK] + rel.state.off[BLACK];
+  assert(w === 15 && b === 15, "המספר הכולל של החיילים נשמר");
 }
 
 console.log(failed === 0 ? "\nכל הבדיקות עברו ✓" : `\n${failed} בדיקות נכשלו ✗`);

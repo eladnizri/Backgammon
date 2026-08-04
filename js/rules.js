@@ -246,6 +246,37 @@ function chainOptionsFrom(turnsResult, prefix, from) {
   return [...best.values()];
 }
 
+/* ==========================================================================
+   שש-בש טורקי — ארבעה חוקים מיוחדים לזריקות מסוימות (מעל החוקים הרגילים):
+   1-2  → החלפת צדדים בין השחקנים
+   3-4  → השחקן בוחר איזה דאבל לשחק (1..6)
+   5-6  → השחקן מעביר שני חיילים לכל נקודה פנויה, קדימה או אחורה
+   דאבל → תור נוסף אחרי שמסיימים אותו
+   ========================================================================== */
+
+function classifyRoll(dice) {
+  if (dice[0] === dice[1]) return "double";
+  const lo = Math.min(dice[0], dice[1]), hi = Math.max(dice[0], dice[1]);
+  if (lo === 1 && hi === 2) return "swap";
+  if (lo === 3 && hi === 4) return "choose";
+  if (lo === 5 && hi === 6) return "relocate";
+  return "normal";
+}
+
+/* חוק 5-6: כל ההעברות החופשיות האפשריות של חייל בודד —
+   מכל מקור (נקודה או בר) לכל נקודה שאינה חסומה על ידי היריב. */
+function relocateSingleMoves(s, c) {
+  const dests = [];
+  for (let i = 0; i < 24; i++) if (!isBlocked(s, i, c)) dests.push(i);
+  const moves = [];
+  const addFrom = from => {
+    for (const to of dests) if (to !== from) moves.push({ from, to });
+  };
+  if (s.bar[c] > 0) addFrom("bar");
+  for (let i = 0; i < 24; i++) if (ownCount(s, i, c) > 0) addFrom(i);
+  return moves;
+}
+
 /* האם נותק המגע בין הצבאות (מרוץ טהור) */
 function isRace(s) {
   let maxW = -1, minB = 24;

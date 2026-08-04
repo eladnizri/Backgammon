@@ -212,6 +212,41 @@ function chooseAiTurn(state, color, dice, level, turnsResult) {
   return best;
 }
 
+/* ---- בחירות AI לזריקות הטורקיות המיוחדות ---- */
+
+/* חוק 3-4: בוחר את הדאבל (1..6) שנותן את העמדה הטובה ביותר */
+function aiChooseDouble(state, color) {
+  let bestDie = 6, bestV = -Infinity, bestFinal = null;
+  for (let d = 1; d <= 6; d++) {
+    const finals = uniqueFinalStates(generateTurns(state, color, [d, d]));
+    for (const f of finals) {
+      const v = evaluate(f.state, color);
+      if (v > bestV) { bestV = v; bestDie = d; bestFinal = f; }
+    }
+  }
+  return { die: bestDie, final: bestFinal };
+}
+
+/* חוק 5-6: בוחר בחמדנות שתי העברות חופשיות — הטובה ביותר, ואז השנייה */
+function aiRelocate(state, color) {
+  const moves = [];
+  let s = state;
+  for (let step = 0; step < 2; step++) {
+    const cands = relocateSingleMoves(s, color);
+    if (!cands.length) break;
+    let best = null, bestV = -Infinity, bestState = null, bestHit = false;
+    for (const m of cands) {
+      const r = applyMove(s, color, m);
+      const v = evaluateFast(r.state, color);
+      if (v > bestV) { bestV = v; best = m; bestState = r.state; bestHit = r.hit; }
+    }
+    if (!best) break;
+    moves.push({ from: best.from, to: best.to, die: 0, hit: bestHit, relocate: true });
+    s = bestState;
+  }
+  return { moves, state: s };
+}
+
 /* ==========================================================================
    דירוג מהלכים + הסברים בעברית
    ========================================================================== */

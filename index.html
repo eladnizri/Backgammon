@@ -209,6 +209,13 @@
         <svg class="logo-lg"><use href="#ico-logo"/></svg>
         <p>שחקו מול חבר בזמן אמת. אחד פותח חדר ומוסר את הקוד, השני מכניס אותו.</p>
       </div>
+      <div class="lobby-variant">
+        <span class="seg-lbl">סוג משחק (למי שפותח חדר)</span>
+        <div class="seg wide-seg" id="online-variant-seg">
+          <button data-v="regular" class="on">רגיל</button>
+          <button data-v="turkish">טורקי</button>
+        </div>
+      </div>
       <div class="home-actions">
         <button class="home-btn primary" id="lobby-host-btn">פתח חדר חדש</button>
         <button class="home-btn" id="lobby-join-btn">הצטרף עם קוד</button>
@@ -262,6 +269,12 @@
 <div id="level-backdrop" class="sheet-backdrop" hidden>
   <div class="sheet">
     <div class="grabber"></div>
+    <h3>סוג משחק</h3>
+    <div class="seg wide-seg" id="variant-seg">
+      <button data-v="regular" class="on">רגיל</button>
+      <button data-v="turkish">טורקי</button>
+    </div>
+    <p class="seg-note" id="variant-note"></p>
     <h3>בחר רמת קושי</h3>
     <div class="lvl-cards" id="lvl-cards">
       <button class="lvl-card" data-v="easy">
@@ -353,6 +366,16 @@
     <div class="sheet-actions">
       <button class="pill-btn wide gold" id="profile-add">הוסף שחקן</button>
     </div>
+  </div>
+</div>
+
+<!-- בוחר דאבל (שש-בש טורקי, זריקת 3-4) -->
+<div id="dbl-backdrop" class="sheet-backdrop" hidden>
+  <div class="sheet dbl-sheet">
+    <div class="grabber"></div>
+    <h3>יצא 3-4 — בחר דאבל</h3>
+    <p class="seg-note">בחר איזה זוג לשחק — ארבעה מהלכים באותו ערך.</p>
+    <div class="dbl-grid" id="dbl-grid"></div>
   </div>
 </div>
 

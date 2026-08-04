@@ -420,6 +420,10 @@
     turnSecs: 60,      // 0 = בלי טיימר
     timer: null,       // { until, who, raf, lastTick }
     mode: "cpu",       // cpu | online
+    variant: "regular",// regular | turkish
+    naturalDouble: false, // דאבל טבעי → תור נוסף (טורקי)
+    turkishAction: null,  // swap | choose | relocate — תור שלא מדורג
+    relocLeft: 0,      // כמה חיילים נותר להעביר בחוק 5-6
     me: WHITE,         // הצבע שהשחקן המקומי מזיז
     oppName: "מחשב",
     silentCoach: false,// מדרג ברקע בלי להציג כרטיס תוך כדי משחק
@@ -644,7 +648,7 @@
         p.cnt.textContent = showCount ? sl.n : "";
 
         /* רק החייל העליון בערימה נחשב "ניתן להזזה" */
-        const movable = Game.phase === "playerMove" && isMine(color) &&
+        const movable = (Game.phase === "playerMove" || Game.phase === "relocate") && isMine(color) &&
           isTopOfStack && Game.sources.has(sl.loc);
         p.el.classList.toggle("movable", !!(movable && Game.hints));
         p.el.classList.remove("selected");
@@ -779,15 +783,16 @@
     /* בהטלה אוטומטית הכפתור מיותר ורק מהבהב לרגע — עדיף להסתיר אותו */
     rollBtn.hidden = !(Game.phase === "playerRoll") || Game.autoRoll;
     confirmBtn.hidden = Game.phase !== "confirm";
-    /* ביטול זמין כל עוד התור לא אושר, כולל בשלב האישור */
+    /* ביטול זמין כל עוד התור לא אושר, כולל בשלב האישור וההעברה */
     undoBtn.hidden = !(Game.prefix.length > 0 &&
-      (Game.phase === "playerMove" || Game.phase === "confirm"));
+      (Game.phase === "playerMove" || Game.phase === "confirm" || Game.phase === "relocate"));
   }
 
   /* ---------- זרימת המשחק ---------- */
 
   function newGame() {
     Game.gen++;
+    Game.turkishAction = null; Game.naturalDouble = false;
     Game.state = initialState();
     Game.view = Game.state;
     Game.ratings = []; Game.log = []; Game.replay = null;
@@ -833,8 +838,24 @@
     startPlayerTurn(dice);
   }
 
+  /* מפזר את הזריקה: בטורקי חלק מהזריקות מפעילות חוק מיוחד, אחרת מהלך רגיל */
   function startPlayerTurn(dice) {
     const g = Game.gen;
+    Game.turkishAction = null;
+    Game.naturalDouble = false;
+    if (Game.variant === "turkish") {
+      const kind = classifyRoll(dice);
+      if (kind === "swap") return humanSwap(g, dice);
+      if (kind === "choose") return humanChooseDouble(g, dice);
+      if (kind === "relocate") return humanRelocate(g, dice);
+      if (kind === "double") Game.naturalDouble = true;
+    }
+    beginMoveTurn(dice, g);
+  }
+
+  function beginMoveTurn(dice, g) {
+    Game.dice = dice;             // דאבל נבחר (3-4) מעדכן את הקוביות המוצגות
+    Game.diceWho = Game.me;
     Game.turnStart = Game.state;
     Game.view = Game.state;
     Game.prefix = []; Game.chunks = [];
@@ -872,6 +893,97 @@
     render();
   }
 
+  /* ==================== שש-בש טורקי — חוקים מיוחדים ==================== */
+
+  /* מחליף איזה צבע כל שחקן מזיז. הלוח לא זז — רק ההגדרה מי מוביל מה,
+     והתצוגה מסתובבת לצד של הצבע החדש. */
+  function performSwap() {
+    Game.me = -Game.me;
+    layoutPoints();
+    applyStripColors();
+    render();
+  }
+
+  function applyStripColors() {
+    const meAv = $("#strip-me .avatar"), oppAv = $("#strip-ai .avatar");
+    if (!meAv || !oppAv) return;
+    meAv.classList.toggle("w", Game.me === WHITE);
+    meAv.classList.toggle("b", Game.me === BLACK);
+    oppAv.classList.toggle("w", Game.me === BLACK);
+    oppAv.classList.toggle("b", Game.me === WHITE);
+  }
+
+  /* 1-2: אני מחליף צדדים, התור עובר ליריב */
+  function humanSwap(g, dice) {
+    Game.turkishAction = "swap";
+    Game.dice = dice; Game.diceWho = Game.me; Game.diceUsed = [];
+    Game.phase = "auto";
+    stopTimer(); updateButtons(); render(); renderDice(true);
+    Sfx.roll();
+    status("יצא <b>1-2</b> — מחליפים צדדים! 🔄");
+    if (Game.mode === "online") netSend({ t: "swap" });
+    setTimeout(() => {
+      if (stale(g)) return;
+      performSwap();
+      Sfx.hit();
+      setTimeout(() => {
+        if (stale(g)) return;
+        if (Game.mode === "online") {
+          Game.phase = "remote"; render();
+          status("החלפת צדדים — ממתין ליריב…");
+          startTimer(-Game.me);
+        } else {
+          Game.phase = "ai"; render(); aiTurn();
+        }
+      }, 650);
+    }, 800);
+  }
+
+  /* 3-4: השחקן בוחר דאבל */
+  function humanChooseDouble(g, dice) {
+    Game.dice = dice; Game.diceWho = Game.me; Game.diceUsed = [];
+    Game.phase = "choosing";
+    stopTimer(); updateButtons(); render(); renderDice(true);
+    status("יצא <b>3-4</b> — בחר איזה דאבל לשחק");
+    Sfx.roll();
+    showDoubleChooser(die => {
+      if (stale(g)) return;
+      Game.turkishAction = "choose";
+      Game.naturalDouble = false;   // דאבל נבחר אינו מזכה בתור נוסף
+      beginMoveTurn([die, die], g);
+    });
+  }
+
+  /* 5-6: השחקן מעביר שני חיילים לכל מקום פנוי */
+  function humanRelocate(g, dice) {
+    Game.turkishAction = "relocate";
+    Game.turnStart = Game.state;
+    Game.view = Game.state;
+    Game.dice = dice; Game.diceWho = Game.me; Game.diceUsed = [];
+    Game.prefix = []; Game.chunks = [];
+    Game.selected = null;
+    Game.turnNumber++;
+    Game.relocLeft = 2;
+    Game.phase = "relocate";
+    refreshRelocate();
+    startTimer(Game.me);
+    status("יצא <b>5-6</b> — בחר חייל והעבר אותו לכל מקום (2 חיילים)");
+    updateButtons();
+    render();
+  }
+
+  function refreshRelocate() {
+    const s = Game.view;
+    const src = new Set();
+    if (Game.relocLeft > 0) {
+      if (s.bar[Game.me] > 0) src.add("bar");
+      for (let i = 0; i < 24; i++) if (ownCount(s, i, Game.me) > 0) src.add(i);
+    }
+    Game.sources = src;
+    /* applyChain בודק את אורך options כדי לדעת אם התור נגמר */
+    Game.options = Game.relocLeft > 0 ? [{ relocate: true }] : [];
+  }
+
   async function autoPlay(moves, g) {
     Game.phase = "auto";          // חוסם קלט בזמן שהמהלך הכפוי משוחק
     stopTimer();
@@ -888,6 +1000,8 @@
   }
 
   function refreshOptions() {
+    if (Game.phase === "relocate") { refreshRelocate(); return; }
+    if (!Game.turnsResult) { Game.options = []; Game.sources = new Set(); return; }
     Game.options = nextMoveOptions(Game.turnsResult, Game.prefix);
     Game.sources = new Set(Game.options.map(m => m.from));
   }
@@ -902,13 +1016,15 @@
   }
 
   function applyChain(chain) {
-    const g = Game.gen;
+    const relocating = Game.phase === "relocate";
     for (const m of chain.moves) commitMove(m);
     Game.chunks.push(chain.moves.length);
     Game.selected = null;
+    if (relocating) Game.relocLeft -= chain.moves.length;
 
     const hit = chain.moves.some(m => m.hit);
     const bore = chain.moves.some(m => m.to === "off");
+    if (relocating) refreshRelocate();
     updateButtons();
     render();
     if (hit) {
@@ -922,6 +1038,8 @@
       Game.phase = "confirm";
       updateButtons();
       status("סיימת את המהלכים — <b>סיים תור</b> לאישור");
+    } else if (relocating) {
+      status(`נותר להעביר עוד חייל אחד`);
     } else {
       status(`נותרו מהלכים — ${Game.options.length === 1 ? "מהלך אחד" : "בחר חייל"}`);
     }
@@ -929,16 +1047,23 @@
 
   function undoChunk() {
     if (!Game.chunks.length) return;
-    if (Game.phase === "confirm") Game.phase = "playerMove";
+    const reloc = Game.turkishAction === "relocate";
     Game.prefix.length -= Game.chunks.pop();
     let s = Game.turnStart;
     for (const m of Game.prefix) s = applyMove(s, Game.me, m).state;
     Game.view = s;
     Game.selected = null;
-    refreshOptions();
+    if (reloc) {
+      Game.relocLeft = 2 - Game.prefix.length;
+      Game.phase = "relocate";
+      refreshRelocate();
+    } else {
+      if (Game.phase === "confirm") Game.phase = "playerMove";
+      refreshOptions();
+    }
     updateButtons();
     render();
-    status("בוטל — נסה שוב");
+    status(reloc ? "בוטל — בחר חייל להעברה" : "בוטל — נסה שוב");
   }
 
   function endPlayerTurn(noMoves) {
@@ -957,7 +1082,8 @@
     };
     Game.log.push(entry);
 
-    if (!noMoves) {
+    /* בטורקי אין דירוג לזריקות המיוחדות — ההיוריסטיקה לא מבינה אותן */
+    if (!noMoves && !Game.turkishAction) {
       const r = rateTurn(Game.turnStart, Game.me, Game.dice, Game.state);
       if (!r.noMoves) {
         entry.rating = r;
@@ -979,8 +1105,18 @@
     Stats.save();
     render();
 
-    if (Game.mode === "online") netSend({ t: "turn", dice: Game.dice.slice(), moves: Game.prefix.slice() });
+    const extra = Game.naturalDouble && Game.variant === "turkish";
+    if (Game.mode === "online") {
+      netSend({ t: "turn", dice: Game.dice.slice(), moves: Game.prefix.slice(), again: extra });
+    }
     if (winner(Game.state) === Game.me) return gameOver(Game.me);
+
+    /* דאבל טבעי → אני זורק שוב, במקום למסור את התור */
+    if (extra) {
+      status("דאבל! תור נוסף 🎲");
+      setTimeout(() => { if (!stale(g)) playerRollPhase(); }, T.handoff);
+      return;
+    }
 
     if (Game.mode === "online") {
       status("ממתין ליריב…");
@@ -990,8 +1126,9 @@
     setTimeout(() => { if (!stale(g)) aiTurn(); }, noMoves ? 400 : T.handoff);
   }
 
-  /* מריץ תור של הצד השני — בין אם המחשב בחר אותו ובין אם הגיע מהרשת */
-  async function playOpponentTurn(dice, moves, g, label, preRolled) {
+  /* מריץ תור של הצד השני — בין אם המחשב בחר אותו ובין אם הגיע מהרשת.
+     opts: { preRolled, again, action } — action מסמן זריקה טורקית מיוחדת. */
+  async function playOpponentTurn(dice, moves, g, label, opts = {}) {
     const opp = -Game.me;
     const before = Game.state;
     stopTimer();
@@ -1001,11 +1138,15 @@
     Game.diceUsed = [];
     updateButtons();
     render();
-    /* אם כבר ראינו את ההטלה שלו אין טעם לזרוק את הקוביות שוב */
-    if (!preRolled) {
+
+    const intro = opts.action === "relocate" ? `${label} הוציא 5-6 והעביר חיילים`
+      : opts.action === "choose" ? `${label} בחר דאבל ${dice[0]}`
+      : `${label} הטיל <b>${dice[0]}-${dice[1]}</b>`;
+
+    if (!opts.preRolled) {
       renderDice(true);
       Sfx.roll();
-      status(`${label} הטיל <b>${dice[0]}-${dice[1]}</b>`);
+      status(intro);
       await delay(T.aiThink);
     } else {
       await delay(160);
@@ -1015,7 +1156,7 @@
     if (!moves.length) {
       status(`${label} הטיל <b>${dice[0]}-${dice[1]}</b> — אין לו מהלך`);
       await delay(1100);
-      if (!stale(g)) playerRollPhase();
+      if (!stale(g)) afterOpponentTurn(opp, opts, g);
       return;
     }
 
@@ -1036,17 +1177,65 @@
     const hit = moves.some(m => m.hit);
     status(`${label} שיחק ${movesHtml(moves)}${hit ? " — הכה אותך" : ""}`);
     if (winner(Game.state) === opp) return gameOver(opp);
+    afterOpponentTurn(opp, opts, g);
+  }
+
+  /* לאחר תור היריב: דאבל טבעי מזכה אותו בתור נוסף, אחרת התור עובר אליי */
+  function afterOpponentTurn(opp, opts, g) {
+    if (opts.again) {
+      if (Game.mode === "online") {
+        status(`${Game.oppName} קיבל תור נוסף (דאבל)`);
+        return;                     // נשארים ב-remote וממתינים לזריקה הבאה שלו
+      }
+      status(`${Game.oppName} קיבל תור נוסף!`);
+      setTimeout(() => { if (!stale(g)) aiTurn(); }, T.handoff);
+      return;
+    }
     playerRollPhase();
   }
 
   async function aiTurn() {
     const g = Game.gen;
     const dice = [d6(), d6()];
+
+    if (Game.variant === "turkish") {
+      const kind = classifyRoll(dice);
+      if (kind === "swap") return aiSwap(g, dice);
+      if (kind === "choose") {
+        const pick = aiChooseDouble(Game.state, -Game.me);
+        const tr = generateTurns(Game.state, -Game.me, [pick.die, pick.die]);
+        const moves = tr.maxLen === 0 ? [] : chooseAiTurn(Game.state, -Game.me, [pick.die, pick.die], Game.level, tr).moves;
+        return playOpponentTurn([pick.die, pick.die], moves, g, "המחשב", { action: "choose" });
+      }
+      if (kind === "relocate") {
+        const rel = aiRelocate(Game.state, -Game.me);
+        return playOpponentTurn([5, 6], rel.moves, g, "המחשב", { action: "relocate" });
+      }
+      if (kind === "double") {
+        const tr = generateTurns(Game.state, -Game.me, dice);
+        const moves = tr.maxLen === 0 ? [] : chooseAiTurn(Game.state, -Game.me, dice, Game.level, tr).moves;
+        return playOpponentTurn(dice, moves, g, "המחשב", { again: true });
+      }
+    }
+
     const tr = generateTurns(Game.state, -Game.me, dice);
-    const moves = tr.maxLen === 0
-      ? []
-      : chooseAiTurn(Game.state, -Game.me, dice, Game.level, tr).moves;
+    const moves = tr.maxLen === 0 ? [] : chooseAiTurn(Game.state, -Game.me, dice, Game.level, tr).moves;
     await playOpponentTurn(dice, moves, g, "המחשב");
+  }
+
+  /* המחשב הוציא 1-2 — מציג את הקוביות, מחליף צדדים, והתור עובר אליי */
+  async function aiSwap(g, dice) {
+    Game.phase = "ai";
+    Game.dice = dice; Game.diceWho = -Game.me; Game.diceUsed = [];
+    render(); renderDice(true); Sfx.roll();
+    status(`${Game.oppName} הוציא <b>1-2</b> — מחליף צדדים! 🔄`);
+    await delay(T.aiThink + 500);
+    if (stale(g)) return;
+    performSwap();
+    Sfx.hit();
+    await delay(650);
+    if (stale(g)) return;
+    playerRollPhase();
   }
 
   /* ---------- טיימר תור ----------
@@ -1098,6 +1287,17 @@
     const g = Game.gen;
     if (Game.phase === "playerRoll") { playerRoll(); return; }
     if (Game.phase === "confirm") { endPlayerTurn(false); return; }
+
+    /* בטורקי, אם נגמר הזמן בזמן העברה חופשית — המנוע משלים אותה */
+    if (Game.phase === "relocate") {
+      Game.prefix = []; Game.chunks = [];
+      Game.view = Game.turnStart;
+      Game.selected = null;
+      status("נגמר הזמן — ההעברה נבחרה אוטומטית");
+      const rel = aiRelocate(Game.turnStart, Game.me);
+      autoPlay(rel.moves, g);
+      return;
+    }
     if (Game.phase !== "playerMove") return;
 
     /* מחזירים את התור להתחלה ונותנים למנוע לבחור — עדיף מלהשאיר תור חצי־מוזז */
@@ -1180,7 +1380,21 @@
            e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
   }
 
-  const chainsFor = from => chainOptionsFrom(Game.turnsResult, Game.prefix, from);
+  /* בהעברה חופשית (5-6): כל נקודה פנויה היא יעד חוקי מכל מקור נבחר */
+  function relocateChainsFrom(from) {
+    const s = Game.view;
+    const chains = [];
+    for (let i = 0; i < 24; i++) {
+      if (i === from || isBlocked(s, i, Game.me)) continue;
+      const hit = s.points[i] === -Game.me;
+      chains.push({ dest: i, moves: [{ from, to: i, die: 0, relocate: true, hit }] });
+    }
+    return chains;
+  }
+
+  const chainsFor = from =>
+    Game.phase === "relocate" ? relocateChainsFrom(from)
+      : chainOptionsFrom(Game.turnsResult, Game.prefix, from);
 
   function selectSource(from) {
     const chains = chainsFor(from);
@@ -1197,7 +1411,7 @@
     Sfx.boot();
 
     if (Game.phase === "playerRoll") { playerRoll(); return; }
-    if (Game.phase !== "playerMove") return;
+    if (Game.phase !== "playerMove" && Game.phase !== "relocate") return;
 
     const p = pct(e);
     const ht = hitTest(p.x, p.y);
@@ -1859,7 +2073,7 @@
         }
         Game.net.first = Math.random() < 0.5 ? WHITE : BLACK;
         Game.net.started = true;
-        netSend({ t: "welcome", first: Game.net.first, name: myName() });
+        netSend({ t: "welcome", first: Game.net.first, name: myName(), variant: Game.variant });
         startOnlineGame(WHITE, Game.net.first);
         break;
 
@@ -1867,6 +2081,7 @@
         if (Game.net.role !== "guest" || Game.net.started) return;
         Game.net.theirName = m.name || "יריב";
         Game.net.started = true;
+        Game.variant = m.variant === "turkish" ? "turkish" : "regular";
         startOnlineGame(BLACK, m.first);
         break;
 
@@ -1887,9 +2102,19 @@
         if (Game.phase !== "remote") return;      // הודעה כפולה או מאוחרת
         const preRolled = !!Game.net.sawRoll;
         Game.net.sawRoll = false;
-        playOpponentTurn(m.dice, m.moves || [], Game.gen, Game.oppName, preRolled);
+        playOpponentTurn(m.dice, m.moves || [], Game.gen, Game.oppName, { preRolled, again: !!m.again });
         break;
       }
+
+      /* היריב הוציא 1-2 בטורקי — מחליף צדדים, והתור עובר אליי */
+      case "swap":
+        if (Game.phase !== "remote") return;
+        Game.net.sawRoll = false;
+        performSwap();
+        Sfx.hit();
+        status("היריב החליף צדדים 🔄");
+        setTimeout(() => { if (Game.phase === "remote") playerRollPhase(); }, 700);
+        break;
 
       case "resign":
         if (Game.net.started && Game.phase !== "over") gameOver(Game.me, "resign");
@@ -1948,6 +2173,7 @@
     Game.me = myColor;
     Game.silentCoach = true;
     Game.level = "medium";              // המנוע עדיין מדרג, רק בלי להציג
+    Game.turkishAction = null; Game.naturalDouble = false;
     Game.state = initialState();
     Game.view = Game.state;
     Game.ratings = []; Game.log = []; Game.replay = null;
@@ -1958,15 +2184,17 @@
     Game.startedAt = Date.now();
 
     layoutPoints();                      // הלוח מסתובב לצד של השחקן
+    applyStripColors();
     Game.oppName = (Game.net && Game.net.theirName) || "יריב";
     setOpponentLabel(Game.oppName, "🙋");
     setMeLabel();
-    $("#title-level").textContent = "מול חבר";
+    $("#title-level").textContent = Game.variant === "turkish" ? "טורקי · מול חבר" : "מול חבר";
     $("#net-warn").hidden = true;
     hideToast(); hideModal(); hideSheet();
     updateAvgChip();
     showScreen("game");
     fitBoard();
+    maybeShowTurkishIntro();
 
     const rec = (Stats.d.vs || {})[Game.oppName];
     const head = rec ? ` · המאזן מולו <b>${rec.w}-${rec.l}</b>` : "";
@@ -2014,6 +2242,7 @@
   }
 
   async function hostRoom() {
+    Game.variant = onlineVariant;        // המארח קובע את סוג המשחק
     const room = makeRoomCode();
     $("#room-code").textContent = room;
     $("#host-status").textContent = netConfigured()
@@ -2095,8 +2324,10 @@
     Game.me = WHITE;
     Game.silentCoach = false;
     Game.level = level;
+    Game.variant = pendingVariant;
     Game.oppName = "המחשב";
     layoutPoints();
+    applyStripColors();
     setOpponentLabel("מחשב", "🤖");
     setMeLabel();
     $("#net-warn").hidden = true;
@@ -2104,8 +2335,8 @@
     $("#level-backdrop").hidden = true;
     showScreen("game");
 
-    /* ברמה הקלה מניחים שזה המשחק הראשון אי פעם — מדריך לפני שמתחילים */
-    if (level === "easy" && !Profiles.active().stats.tutorialDone) {
+    /* המדריך רלוונטי רק לשש-בש רגיל; בטורקי מציגים הסבר חוקים נפרד */
+    if (Game.variant === "regular" && level === "easy" && !Profiles.active().stats.tutorialDone) {
       Game.phase = "idle";
       Game.dice = [];
       Game.state = initialState();
@@ -2117,11 +2348,87 @@
       return;
     }
     newGame();
+    maybeShowTurkishIntro();
   }
 
   function syncLevelUi(level) {
     [...$("#level-seg").children].forEach(c => c.classList.toggle("on", c.dataset.v === level));
-    $("#title-level").textContent = LEVEL_NAME[level] || "מאמן אישי";
+    const base = LEVEL_NAME[level] || "מאמן אישי";
+    $("#title-level").textContent = Game.variant === "turkish" ? "טורקי · " + base : base;
+  }
+
+  /* ---------- בחירת סוג משחק ---------- */
+
+  let pendingVariant = "regular";       // הבחירה במסך רמת הקושי (מול המחשב)
+
+  const VARIANT_NOTE = {
+    regular: "שש-בש קלאסי — החוקים המוכרים.",
+    turkish: "טורקי: 1-2 מחליף צדדים · 3-4 דאבל לבחירה · 5-6 מזיז 2 חיילים חופשי · דאבל = תור נוסף.",
+  };
+
+  function syncVariantNote() {
+    $("#variant-note").textContent = VARIANT_NOTE[pendingVariant];
+  }
+
+  $("#variant-seg").onclick = e => {
+    const b = e.target.closest("button[data-v]");
+    if (!b) return;
+    pendingVariant = b.dataset.v;
+    [...e.currentTarget.children].forEach(c => c.classList.toggle("on", c === b));
+    syncVariantNote();
+  };
+
+  let onlineVariant = "regular";
+  $("#online-variant-seg").onclick = e => {
+    const b = e.target.closest("button[data-v]");
+    if (!b) return;
+    onlineVariant = b.dataset.v;
+    [...e.currentTarget.children].forEach(c => c.classList.toggle("on", c === b));
+  };
+
+  /* ---------- הסבר חוקי טורקי (פעם אחת לכל שחקן) ---------- */
+
+  function maybeShowTurkishIntro() {
+    if (Game.variant !== "turkish") return;
+    if (Profiles.active().stats.turkishSeen) return;
+    Profiles.active().stats.turkishSeen = true;
+    Profiles.save();
+    showModal(`
+      <h2>שש-בש טורקי</h2>
+      <div class="win-kind">ארבעה חוקים מיוחדים</div>
+      <ul class="rules-list">
+        <li><b dir="ltr">1-2</b> — מחליפים צדדים: היריב שלך הופך אליך ולהפך.</li>
+        <li><b dir="ltr">3-4</b> — אתה בוחר איזה דאבל לשחק (1 עד 6).</li>
+        <li><b dir="ltr">5-6</b> — אתה מעביר שני חיילים לכל מקום פנוי, קדימה או אחורה.</li>
+        <li><b>דאבל</b> — כל דאבל מזכה בתור נוסף.</li>
+      </ul>
+      <p class="note">שאר החוקים כמו בשש-בש רגיל. בטורקי המאמן שקט בזריקות המיוחדות.</p>
+      <div class="actions"><button class="pill-btn wide gold" id="m-turk-ok">הבנתי, יאללה</button></div>`);
+    $("#m-turk-ok").onclick = hideModal;
+  }
+
+  /* ---------- בוחר הדאבל (זריקת 3-4) ---------- */
+
+  function showDoubleChooser(cb) {
+    const grid = $("#dbl-grid");
+    grid.innerHTML = "";
+    for (let d = 1; d <= 6; d++) {
+      const btn = document.createElement("button");
+      btn.className = "dbl-die";
+      const on = PIPS[d];
+      for (let i = 0; i < 9; i++) {
+        const dot = document.createElement("span");
+        if (on.includes(i)) dot.className = "dot";
+        btn.appendChild(dot);
+      }
+      btn.onclick = () => {
+        $("#dbl-backdrop").hidden = true;
+        Sfx.place();
+        cb(d);
+      };
+      grid.appendChild(btn);
+    }
+    $("#dbl-backdrop").hidden = false;
   }
 
   /* ---------- מסך הבית ---------- */
@@ -2240,7 +2547,7 @@
     renderHomeQuick();
   };
 
-  $("#btn-play").onclick = () => { $("#level-backdrop").hidden = false; };
+  $("#btn-play").onclick = () => { syncVariantNote(); $("#level-backdrop").hidden = false; };
   $("#btn-stats").onclick = () => showScreen("stats");
 
   $("#level-backdrop").onclick = e => { if (e.target.id === "level-backdrop") $("#level-backdrop").hidden = true; };
@@ -2511,7 +2818,8 @@
     updateButtons, gameOver, showStatsModal, showScreen, startGame, fitBoard,
     startTimer, stopTimer, resign, requestRematch,
     enterReplay, exitReplay, replayGoto, drawSummaryCard, shareSummary, setBoardTheme,
-    Tutorial, TUT_STEPS,
+    Tutorial, TUT_STEPS, performSwap, showDoubleChooser,
+    setVariant: v => { pendingVariant = v; onlineVariant = v; Game.variant = v; },
   };
 
 })();
