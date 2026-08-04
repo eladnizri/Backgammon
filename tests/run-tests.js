@@ -174,9 +174,19 @@ console.log("שש-בש טורקי — הזזה חופשית (5-6):");
   assert(ms.some(m => m.from === 23 && m.to === 20), "אפשר להעביר קדימה");
   assert(ms.some(m => m.from === 10 && m.to === 15), "אפשר להעביר גם אחורה");
   assert(ms.some(m => m.to === 8), "אפשר לנחות על חייל יריב בודד (הכאה)");
+  assert(ms.every(m => m.to !== "off"), "בלי הורדה מהלוח כשלא כל החיילים בבית");
   // הכאה בפועל
   const r = applyMove(s, WHITE, { from: 10, to: 8 });
   assert(r.hit && r.state.bar[BLACK] === 1, "העברה לחייל בודד מכה אותו לבר");
+
+  // בשלב ההוצאה (כל החיילים בבית) אפשר להוריד 2 חיילים ישירות
+  const h = emptyState();
+  h.points[2] = 2; h.points[4] = 3; h.off[WHITE] = 10;
+  h.points[20] = -15;
+  const hm = relocateSingleMoves(h, WHITE);
+  assert(hm.some(m => m.from === 2 && m.to === "off"), "בשלב ההוצאה אפשר להוריד חייל דרך 5-6");
+  const off1 = applyMove(h, WHITE, { from: 4, to: "off" });
+  assert(off1.state.off[WHITE] === 11, "הורדה חופשית מגדילה את מונה ההורדה");
 }
 
 console.log("שש-בש טורקי — בחירות AI:");

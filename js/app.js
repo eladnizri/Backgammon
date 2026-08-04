@@ -50,8 +50,8 @@
         hitsMade: 0, hitsTaken: 0,
         doubles: 0, borneOff: 0, barEntries: 0,
         streak: 0, bestStreak: 0,
-        playMs: 0,
-        vs: {},          // שם יריב -> { w, l }
+        playMs: 0, draws: 0,
+        vs: {},          // שם יריב -> { w, l, d }
       };
     },
 
@@ -509,7 +509,7 @@
     /* מגש ההורדה יושב מחוץ ללוח, ולכן צריך מאזין משלו כדי שאפשר יהיה
        להוריד חייל בלחיצה ולא רק בגרירה. */
     borneEls.mine.host.addEventListener("pointerdown", e => {
-      if (Game.phase !== "playerMove" || !Game.selected) return;
+      if ((Game.phase !== "playerMove" && Game.phase !== "relocate") || !Game.selected) return;
       const chain = Game.selected.chains.find(c => c.dest === "off");
       if (!chain) return;
       e.preventDefault();
@@ -1380,7 +1380,8 @@
            e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
   }
 
-  /* בהעברה חופשית (5-6): כל נקודה פנויה היא יעד חוקי מכל מקור נבחר */
+  /* בהעברה חופשית (5-6): כל נקודה פנויה היא יעד חוקי מכל מקור נבחר,
+     ובשלב ההוצאה אפשר גם פשוט להוריד את החייל מהלוח (יעד "off"). */
   function relocateChainsFrom(from) {
     const s = Game.view;
     const chains = [];
@@ -1388,6 +1389,9 @@
       if (i === from || isBlocked(s, i, Game.me)) continue;
       const hit = s.points[i] === -Game.me;
       chains.push({ dest: i, moves: [{ from, to: i, die: 0, relocate: true, hit }] });
+    }
+    if (from !== "bar" && allInHome(s, Game.me)) {
+      chains.push({ dest: "off", moves: [{ from, to: "off", die: 0, relocate: true }] });
     }
     return chains;
   }
@@ -1599,11 +1603,11 @@
     const r = Game.lastResult;
     if (!r) return;
     showModal(`
-      <h2>${r.won ? "ניצחת! 🎉" : `${Game.oppName} ניצח`}</h2>
+      <h2>${r.draw ? "תיקו 🤝" : r.won ? "ניצחת! 🎉" : `${Game.oppName} ניצח`}</h2>
       <div class="win-kind">${r.kindTxt}</div>
       ${r.rec ? `<div class="h2h">
           <span class="h2h-side"><b>${r.rec.w}</b>${escapeHtml(Profiles.active().name)}</span>
-          <span class="h2h-vs">מאזן</span>
+          <span class="h2h-vs">מאזן${r.rec.d ? ` · ${r.rec.d} תיקו` : ""}</span>
           <span class="h2h-side"><b>${r.rec.l}</b>${escapeHtml(Game.oppName)}</span>
         </div>` : ""}
       ${summaryHtml(r.sum)}
@@ -1828,7 +1832,7 @@
 
     x.fillStyle = "#eef2f6";
     x.font = "800 64px system-ui, sans-serif";
-    x.fillText(r.won ? "ניצחתי!" : "הפסדתי", W / 2, 300);
+    x.fillText(r.draw ? "תיקו 🤝" : r.won ? "ניצחתי!" : "הפסדתי", W / 2, 300);
 
     x.fillStyle = "#93a1b0";
     x.font = "400 34px system-ui, sans-serif";
@@ -2019,6 +2023,73 @@
     gameOver(-Game.me, "resign");
   }
 
+  /* ---------- הצעת תיקו (רק מול חבר) ---------- */
+
+  const canOfferDraw = () =>
+    Game.mode === "online" && Game.net && Game.net.started && Game.phase !== "over";
+
+  function offerDraw() {
+    if (!canOfferDraw() || Game.net.drawPending) return;
+    hideSheet();
+    Game.net.drawPending = "sent";
+    netSend({ t: "drawoffer" });
+    hideToast();
+    ratingEl.className = "g-forced";
+    $("#rating-score").textContent = "🤝";
+    $("#rating-grade").textContent = "הצעת תיקו נשלחה";
+    $("#rating-expl").textContent = `ממתין לתשובת ${Game.oppName}…`;
+    $("#rating-best").hidden = true;
+    ratingEl.hidden = false; statusEl.hidden = true;
+  }
+
+  function showDrawOfferModal() {
+    showModal(`
+      <h2>הצעת תיקו 🤝</h2>
+      <div class="win-kind">${escapeHtml(Game.oppName)} מציע לסיים בתיקו</div>
+      <p class="note">תיקו עוצר את המשחק בלי הפסד לאף אחד.</p>
+      <div class="actions">
+        <button class="pill-btn wide gold" id="m-draw-yes">אשר תיקו</button>
+        <button class="pill-btn wide" id="m-draw-no">דחה והמשך</button>
+      </div>`);
+    $("#m-draw-yes").onclick = () => { netSend({ t: "drawaccept" }); drawEnd(); };
+    $("#m-draw-no").onclick = () => { netSend({ t: "drawdecline" }); hideModal(); };
+  }
+
+  /* סיום בתיקו — בלי ניצחון או הפסד, עוצר את המשחק */
+  function drawEnd() {
+    if (Game.phase === "over") return;
+    Game.phase = "over";
+    Game.dice = [];
+    stopTimer();
+    clearTimeout(Game.rollTimer);
+    if (Game.net) Game.net.drawPending = null;
+    updateButtons();
+    hideToast();
+    render();
+
+    const sum = summarizeRatings(Game.ratings);
+    Stats.add("games");
+    Stats.add("playMs", Math.max(0, Date.now() - Game.startedAt));
+    Stats.add("onlineGames");
+    Stats.add("draws");
+    if (Game.oppName) {
+      const vs = Stats.d.vs || (Stats.d.vs = {});
+      const rec = vs[Game.oppName] || (vs[Game.oppName] = { w: 0, l: 0 });
+      rec.d = (rec.d || 0) + 1;
+    }
+    if (sum.count) {
+      if (Stats.d.bestGame == null || sum.avg > Stats.d.bestGame) Stats.d.bestGame = sum.avg;
+      if (Stats.d.worstGame == null || sum.avg < Stats.d.worstGame) Stats.d.worstGame = sum.avg;
+    }
+    Stats.save();
+
+    Sfx.off();
+    const rec = (Stats.d.vs || {})[Game.oppName];
+    Game.lastResult = { draw: true, kindTxt: "תיקו בהסכמה 🤝", sum, online: true, rec };
+    status("תיקו 🤝");
+    showGameOverModal();
+  }
+
   /* ==================== משחק מול חבר ====================
      שני הצדדים מריצים את אותו מנוע חוקים על אותו מצב התחלתי, ולכן די
      להעביר ברשת קוביות ומהלכים. המארח מגריל מי פותח ומודיע לאורח. */
@@ -2120,6 +2191,21 @@
         if (Game.net.started && Game.phase !== "over") gameOver(Game.me, "resign");
         break;
 
+      /* הצעת תיקו: היריב מציע, אני מאשר או דוחה */
+      case "drawoffer":
+        if (Game.net.started && Game.phase !== "over") showDrawOfferModal();
+        break;
+
+      case "drawaccept":
+        if (Game.phase !== "over") drawEnd();
+        break;
+
+      case "drawdecline":
+        if (Game.net) Game.net.drawPending = null;
+        hideToast();
+        status(`${Game.oppName} דחה את הצעת התיקו — ממשיכים`);
+        break;
+
       /* משחק חוזר: כל צד מסמן רצון, והמארח מכריז כששניהם מוכנים */
       case "rematch":
         Game.net.theirRematch = true;
@@ -2174,6 +2260,7 @@
     Game.silentCoach = true;
     Game.level = "medium";              // המנוע עדיין מדרג, רק בלי להציג
     Game.turkishAction = null; Game.naturalDouble = false;
+    if (Game.net) Game.net.drawPending = null;
     Game.state = initialState();
     Game.view = Game.state;
     Game.ratings = []; Game.log = []; Game.replay = null;
@@ -2301,6 +2388,7 @@
   function showScreen(name) {
     /* שכבות צפות שייכות למסך שממנו יצאנו — אחרת הן נשארות תלויות מעליו */
     hideModal(); hideSheet(); hideProfiles();
+    $("#dbl-bar").hidden = true;
     SCREENS.forEach(s => $("#screen-" + s).classList.toggle("on", s === name));
     if (name === "home") renderHomeQuick();
     if (name === "stats") renderStatsScreen();
@@ -2422,13 +2510,13 @@
         btn.appendChild(dot);
       }
       btn.onclick = () => {
-        $("#dbl-backdrop").hidden = true;
+        $("#dbl-bar").hidden = true;
         Sfx.place();
         cb(d);
       };
       grid.appendChild(btn);
     }
-    $("#dbl-backdrop").hidden = false;
+    $("#dbl-bar").hidden = false;
   }
 
   /* ---------- מסך הבית ---------- */
@@ -2595,8 +2683,9 @@
         <div class="stat-rows">
           ${vs.map(([name, r]) => {
             const cls = r.w > r.l ? "lead" : r.w < r.l ? "trail" : "";
+            const draws = r.d ? `<span class="vs-draw">${r.d} תיקו</span>` : "";
             return `<div class="stat-row"><span>${escapeHtml(name)}</span>` +
-                   `<b class="${cls}" dir="ltr">${r.w}-${r.l}</b></div>`;
+                   `<span class="vs-rec">${draws}<b class="${cls}" dir="ltr">${r.w}-${r.l}</b></span></div>`;
           }).join("")}
         </div>
       </div>` : "";
@@ -2610,7 +2699,7 @@
           ${card(avg == null ? "—" : avg, "ציון ממוצע", true)}
           ${card(d.wins, "ניצחונות")}
           ${card(d.losses, "הפסדים")}
-          ${card(d.streak, "רצף נוכחי")}
+          ${d.draws ? card(d.draws, "תיקו") : card(d.streak, "רצף נוכחי")}
         </div>
       </div>
 
@@ -2697,10 +2786,15 @@
 
   /* ---------- גיליון הגדרות ---------- */
 
-  function showSheet() { $("#sheet-backdrop").hidden = false; }
+  function showSheet() {
+    /* "הצע תיקו" רלוונטי רק במשחק פעיל מול חבר */
+    $("#sheet-draw").hidden = !canOfferDraw();
+    $("#sheet-backdrop").hidden = false;
+  }
   function hideSheet() { $("#sheet-backdrop").hidden = true; }
 
   $("#menu-btn").onclick = showSheet;
+  $("#sheet-draw").onclick = offerDraw;
   $("#sheet-backdrop").onclick = e => { if (e.target.id === "sheet-backdrop") hideSheet(); };
   $("#sheet-new").onclick = () => { hideSheet(); Game.mode === "online" ? goHome() : newGame(); };
   $("#sheet-home").onclick = goHome;
@@ -2819,6 +2913,7 @@
     startTimer, stopTimer, resign, requestRematch,
     enterReplay, exitReplay, replayGoto, drawSummaryCard, shareSummary, setBoardTheme,
     Tutorial, TUT_STEPS, performSwap, showDoubleChooser,
+    offerDraw, drawEnd, showDrawOfferModal,
     setVariant: v => { pendingVariant = v; onlineVariant = v; Game.variant = v; },
   };
 

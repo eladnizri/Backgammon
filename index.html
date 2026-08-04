@@ -352,6 +352,7 @@
       <button class="pill-btn wide" id="sheet-home">מסך הבית</button>
       <button class="pill-btn wide gold" id="sheet-new">משחק חדש</button>
     </div>
+    <button class="pill-btn wide" id="sheet-draw" hidden>הצע תיקו</button>
     <button class="pill-btn wide danger" id="sheet-resign">פרוש מהמשחק</button>
   </div>
 </div>
@@ -369,14 +370,10 @@
   </div>
 </div>
 
-<!-- בוחר דאבל (שש-בש טורקי, זריקת 3-4) -->
-<div id="dbl-backdrop" class="sheet-backdrop" hidden>
-  <div class="sheet dbl-sheet">
-    <div class="grabber"></div>
-    <h3>יצא 3-4 — בחר דאבל</h3>
-    <p class="seg-note">בחר איזה זוג לשחק — ארבעה מהלכים באותו ערך.</p>
-    <div class="dbl-grid" id="dbl-grid"></div>
-  </div>
+<!-- בוחר דאבל (שש-בש טורקי, זריקת 3-4) — פס קומפקטי שלא מסתיר את הלוח -->
+<div id="dbl-bar" hidden>
+  <span class="dbl-cap">יצא <b dir="ltr">3-4</b> — בחר דאבל</span>
+  <div class="dbl-row" id="dbl-grid"></div>
 </div>
 
 <div id="modal-backdrop" hidden>

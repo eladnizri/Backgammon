@@ -264,13 +264,16 @@ function classifyRoll(dice) {
 }
 
 /* חוק 5-6: כל ההעברות החופשיות האפשריות של חייל בודד —
-   מכל מקור (נקודה או בר) לכל נקודה שאינה חסומה על ידי היריב. */
+   מכל מקור (נקודה או בר) לכל נקודה שאינה חסומה על ידי היריב.
+   בשלב ההוצאה (כל החיילים בבית) אפשר גם פשוט להוריד חייל מהלוח. */
 function relocateSingleMoves(s, c) {
   const dests = [];
   for (let i = 0; i < 24; i++) if (!isBlocked(s, i, c)) dests.push(i);
+  const canBearOff = allInHome(s, c);
   const moves = [];
   const addFrom = from => {
     for (const to of dests) if (to !== from) moves.push({ from, to });
+    if (canBearOff && from !== "bar") moves.push({ from, to: "off" });
   };
   if (s.bar[c] > 0) addFrom("bar");
   for (let i = 0; i < 24; i++) if (ownCount(s, i, c) > 0) addFrom(i);
