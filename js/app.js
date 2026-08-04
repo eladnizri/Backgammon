@@ -904,6 +904,28 @@
     render();
   }
 
+  /* מבצע את ההחלפה באיטיות ומודגש, כדי ששני השחקנים יראו את הלוח מסתובב:
+     כרזה במרכז + החלקה איטית של החיילים למקומם החדש. */
+  function animateSwap(g, done) {
+    showSwapFlash();
+    boardEl.classList.add("swapping");        // מאט את מעבר החיילים ל-720ms
+    performSwap();
+    setTimeout(() => {
+      boardEl.classList.remove("swapping");
+      if (!stale(g) && done) done();
+    }, 1000);
+  }
+
+  function showSwapFlash() {
+    const old = boardEl.querySelector(".swap-flash");
+    if (old) old.remove();
+    const el = document.createElement("div");
+    el.className = "swap-flash";
+    el.innerHTML = `<span class="swap-ico">🔄</span><span>מחליפים צדדים</span>`;
+    boardEl.appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+  }
+
   function applyStripColors() {
     const meAv = $("#strip-me .avatar"), oppAv = $("#strip-ai .avatar");
     if (!meAv || !oppAv) return;
@@ -924,19 +946,20 @@
     if (Game.mode === "online") netSend({ t: "swap" });
     setTimeout(() => {
       if (stale(g)) return;
-      performSwap();
       Sfx.hit();
-      setTimeout(() => {
-        if (stale(g)) return;
-        if (Game.mode === "online") {
-          Game.phase = "remote"; render();
-          status("החלפת צדדים — ממתין ליריב…");
-          startTimer(-Game.me);
-        } else {
-          Game.phase = "ai"; render(); aiTurn();
-        }
-      }, 650);
-    }, 800);
+      animateSwap(g, () => {
+        setTimeout(() => {
+          if (stale(g)) return;
+          if (Game.mode === "online") {
+            Game.phase = "remote"; render();
+            status("החלפת צדדים — ממתין ליריב…");
+            startTimer(-Game.me);
+          } else {
+            Game.phase = "ai"; render(); aiTurn();
+          }
+        }, 700);
+      });
+    }, 950);
   }
 
   /* 3-4: השחקן בוחר דאבל */
@@ -1229,11 +1252,12 @@
     Game.dice = dice; Game.diceWho = -Game.me; Game.diceUsed = [];
     render(); renderDice(true); Sfx.roll();
     status(`${Game.oppName} הוציא <b>1-2</b> — מחליף צדדים! 🔄`);
-    await delay(T.aiThink + 500);
+    await delay(T.aiThink + 600);
     if (stale(g)) return;
-    performSwap();
     Sfx.hit();
-    await delay(650);
+    await new Promise(res => animateSwap(g, res));
+    if (stale(g)) return;
+    await delay(700);
     if (stale(g)) return;
     playerRollPhase();
   }
@@ -2178,14 +2202,17 @@
       }
 
       /* היריב הוציא 1-2 בטורקי — מחליף צדדים, והתור עובר אליי */
-      case "swap":
+      case "swap": {
         if (Game.phase !== "remote") return;
         Game.net.sawRoll = false;
-        performSwap();
         Sfx.hit();
-        status("היריב החליף צדדים 🔄");
-        setTimeout(() => { if (Game.phase === "remote") playerRollPhase(); }, 700);
+        status(`${Game.oppName} הוציא 1-2 — מחליפים צדדים 🔄`);
+        const gs = Game.gen;
+        animateSwap(gs, () => {
+          setTimeout(() => { if (!stale(gs) && Game.phase === "remote") playerRollPhase(); }, 700);
+        });
         break;
+      }
 
       case "resign":
         if (Game.net.started && Game.phase !== "over") gameOver(Game.me, "resign");
