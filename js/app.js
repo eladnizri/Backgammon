@@ -438,6 +438,8 @@
     ratings: [], turnNumber: 0,
     log: [],           // כל תור: { color, dice, moves, before, after, rating }
     replay: null,      // { i } כשצופים בהקלטה
+    coach: null,       // { r, tok, which } בזמן שידור חוזר של המאמן
+    lastCoach: null,   // הדירוג האחרון שניתן להקיש עליו להסבר
     gen: 0,            // מבטל טיימרים ישנים אחרי "משחק חדש"
     toastTimer: null,
   };
@@ -797,6 +799,7 @@
     Game.state = initialState();
     Game.view = Game.state;
     Game.ratings = []; Game.log = []; Game.replay = null;
+    Game.coach = null; Game.lastCoach = null;
     Game.turnNumber = 0;
     Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
     Game.prefix = []; Game.chunks = [];
@@ -1113,6 +1116,11 @@
         entry.rating = r;
         r.turn = Game.turnNumber;
         r.dice = Game.dice.slice();
+        /* הקשר לשידור החוזר של המאמן: המצב לפני, המהלך שלי, והמהלך המומלץ */
+        r.before = Game.turnStart;
+        r.myMoves = entry.moves;
+        r.myAfter = Game.state;
+        r.color = Game.me;
         Game.ratings.push(r);
         if (r.forced) {
           Stats.add("forced");
@@ -1515,10 +1523,27 @@
     const best = $("#rating-best");
     if (r.bestMoves) { best.innerHTML = "עדיף היה: " + movesHtml(r.bestMoves); best.hidden = false; }
     else best.hidden = true;
+
+    /* מול המחשב, כשיש מהלך טוב יותר — אפשר להקיש כדי לראות אותו בשידור חוזר */
+    if (coachAvailable(r)) {
+      Game.lastCoach = r;
+      ratingEl.classList.add("tappable");
+      ratingEl.setAttribute("role", "button");
+      $("#rating-hint").hidden = false;
+    } else {
+      Game.lastCoach = null;
+      ratingEl.classList.remove("tappable");
+      ratingEl.removeAttribute("role");
+      $("#rating-hint").hidden = true;
+    }
+
     ratingEl.hidden = false;
     statusEl.hidden = true;
     Game.toastTimer = setTimeout(hideToast, (!r.forced && r.score < 70) ? 5200 : 3400);
   }
+
+  const coachAvailable = r =>
+    Game.mode === "cpu" && r && !r.forced && r.bestMoves && r.bestMoves.length > 0;
 
   function hideToast() {
     clearTimeout(Game.toastTimer);
@@ -1529,6 +1554,94 @@
   function updateAvgChip() {
     const sum = summarizeRatings(Game.ratings);
     $("#avg-badge").textContent = sum.count ? sum.avg : "—";
+  }
+
+  /* ---------- שידור חוזר של המאמן ----------
+     הקשה על הציון פותחת הדגמה: הלוח חוזר למצב שלפני המהלך ומראה בשידור
+     חוזר גם את המהלך שבחרת וגם את המהלך המומלץ, עם הסבר למה הוא עדיף.
+     ההדגמה אינה משנה את המהלך שכבר שיחקת — היא רק ממחישה אלטרנטיבה. */
+  let coachTok = 0;
+
+  function openCoach() {
+    const r = Game.lastCoach;
+    if (!r || Game.mode !== "cpu" || Game.phase === "coach") return;
+    Game.gen++;                       // עוצר תור מחשב ממתין או רץ
+    stopTimer();
+    clearTimeout(Game.rollTimer);
+    hideToast();
+    Game.phase = "coach";
+    Game.coach = { r, tok: ++coachTok, which: "best" };
+    $("#coach-bar").hidden = false;
+    $("#dock").hidden = true;
+    updateButtons();
+    coachShow("best");                // מתחילים מהמהלך המומלץ — זה מה שרוצים ללמוד
+  }
+
+  function renderCoachPanel() {
+    const c = Game.coach;
+    if (!c) return;
+    const r = c.r, isBest = c.which === "best";
+    const badge = $("#coach-score");
+    badge.className = "score-ring " + r.grade.cls;
+    badge.textContent = r.score;
+    $("#coach-title").textContent = isBest ? "המהלך המומלץ ✓" : "המהלך שבחרת";
+    $("#coach-desc").innerHTML = isBest
+      ? movesHtml(r.bestMoves)
+      : (r.myMoves && r.myMoves.length ? movesHtml(r.myMoves) : "אין מהלך");
+    $("#coach-expl").textContent = isBest ? r.explanation : `הציון שלך: ${r.score}`;
+    $("#coach-mine").classList.toggle("on", !isBest);
+    $("#coach-best").classList.toggle("on", isBest);
+  }
+
+  async function coachShow(which) {
+    const c = Game.coach;
+    if (!c) return;
+    c.which = which;
+    const tok = c.tok, r = c.r;
+    const moves = which === "best" ? r.bestMoves : (r.myMoves || []);
+    renderCoachPanel();
+
+    /* אתחול הלוח למצב שלפני המהלך */
+    Game.view = r.before;
+    Game.dice = r.dice.slice();
+    Game.diceWho = r.color;
+    Game.diceUsed = [];
+    Game.selected = null;
+    Game.sources = new Set();
+    render();
+    await delay(650);
+
+    for (const m of moves) {
+      if (!Game.coach || Game.coach.tok !== tok) return;   // נסגר או הוחלף
+      await delay(560);
+      if (!Game.coach || Game.coach.tok !== tok) return;
+      const res = applyMove(Game.view, r.color, m);
+      Game.view = res.state;
+      Game.diceUsed.push(m.die);
+      render();
+      if (res.hit || m.hit) { Sfx.hit(); flashHit(m.to); } else Sfx.place();
+    }
+  }
+
+  function closeCoach() {
+    const c = Game.coach;
+    Game.coach = null;
+    $("#coach-bar").hidden = true;
+    $("#dock").hidden = false;
+    /* משחזרים את הלוח למצב שאחרי המהלך שלך (המהלך המקורי לא השתנה) וממשיכים */
+    const r = c && c.r;
+    if (r) {
+      Game.state = r.myAfter;
+      Game.view = r.myAfter;
+      Game.dice = r.dice.slice();
+      Game.diceWho = r.color;
+    }
+    Game.selected = null;
+    Game.phase = "ai";
+    render();
+    updateButtons();
+    const g = Game.gen;
+    setTimeout(() => { if (!stale(g)) aiTurn(); }, T.handoff);
   }
 
   /* ---------- סיכומים ---------- */
@@ -2044,6 +2157,12 @@
   $("#replay-next").onclick = () => replayGoto(Game.replay.i + 1);
   $("#replay-play").onclick = replayPlay;
   $("#replay-exit").onclick = exitReplay;
+
+  /* המאמן: הקשה על הציון פותחת את השידור החוזר */
+  ratingEl.onclick = () => { if (Game.lastCoach) openCoach(); };
+  $("#coach-mine").onclick = () => coachShow("mine");
+  $("#coach-best").onclick = () => coachShow("best");
+  $("#coach-close").onclick = closeCoach;
 
   /* ---------- פרישה ---------- */
 
@@ -2952,6 +3071,7 @@
     enterReplay, exitReplay, replayGoto, drawSummaryCard, shareSummary, setBoardTheme,
     Tutorial, TUT_STEPS, performSwap, showDoubleChooser,
     offerDraw, drawEnd, showDrawOfferModal,
+    openCoach, closeCoach, coachShow,
     setVariant: v => { pendingVariant = v; onlineVariant = v; Game.variant = v; },
   };
 

@@ -811,6 +811,62 @@ body {
 #rating-expl  { font-size: .75rem; color: var(--text); margin-top: 1px; line-height: 1.32; }
 #rating-best  { font-size: .71rem; color: var(--text-dim); margin-top: 2px; }
 #rating-best span[dir="ltr"] { unicode-bidi: isolate; color: var(--gold); font-weight: 700; }
+#rating-hint { font-size: .69rem; color: var(--gold); font-weight: 700; margin-top: 4px; }
+#rating.tappable { cursor: pointer; transition: border-color .16s, transform .1s; }
+#rating.tappable:hover { border-inline-start-color: var(--gold); }
+#rating.tappable:active { transform: scale(.99); }
+
+/* ---------- שורת המאמן (שידור חוזר) ---------- */
+#coach-bar {
+  flex: none;
+  padding: 4px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+.coach-info {
+  width: 100%;
+  max-width: 440px;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 13px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--gold);
+}
+.coach-txt { flex: 1; min-width: 0; text-align: start; }
+#coach-title { font-size: .82rem; font-weight: 800; color: var(--gold-hi); }
+#coach-desc { font-size: .78rem; font-weight: 600; margin-top: 1px; }
+#coach-desc span[dir="ltr"] { unicode-bidi: isolate; color: var(--gold); }
+#coach-expl { font-size: .73rem; color: var(--text-dim); margin-top: 2px; line-height: 1.35; }
+.coach-ctl { width: 100%; max-width: 440px; display: flex; align-items: center; gap: 10px; }
+.coach-seg {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 13px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.cseg-btn {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .16s, color .16s;
+}
+.cseg-btn.on { background: color-mix(in srgb, var(--gold) 22%, transparent); color: var(--gold-hi); }
+.coach-ctl .pill-btn { flex: none; }
 
 #actions {
   display: flex;
