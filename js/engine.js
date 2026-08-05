@@ -189,6 +189,8 @@ function chooseAiTurn(state, color, dice, level, turnsResult) {
   }
   if (level === "medium") return scored[0].f;
 
+  if (level === "champion") return championMove(scored, color);
+
   // קשה: expectimax בעומק פליי אחד על המועמדים המובילים
   const top = scored.slice(0, 4);
   let best = top[0].f, bestV = -Infinity;
@@ -208,6 +210,39 @@ function chooseAiTurn(state, color, dice, level, turnsResult) {
     }
     const v = cand.v * 0.35 - (exp / 36);
     if (v > bestV) { bestV = v; best = cand.f; }
+  }
+  return best;
+}
+
+/* אלוף — מאסטר שש-בש: expectimax מלא בעומק תור אחד עם הערכה מדויקת.
+   לכל מועמד מדמים את כל 21 זריקות היריב, מניחים שהיריב יענה במיטבו
+   (המהלך שהכי מזיק לי), ובוחרים את המהלך עם התוחלת הגבוהה ביותר —
+   כלומר העמדה הכי טובה עבורי אחרי התשובה החזקה ביותר של היריב. */
+function championMove(scored, color) {
+  /* סינון מקדים לפי הערכה סטטית כדי לשמור על מהירות, אך רחב מספיק
+     כדי לא לפספס מהלך שנראה חלש סטטית אך חזק אחרי תשובת היריב. */
+  const cand = scored.slice(0, 8);
+  let best = cand[0].f, bestV = -Infinity;
+  for (const c0 of cand) {
+    let exp = 0;
+    for (let d1 = 1; d1 <= 6; d1++) {
+      for (let d2 = d1; d2 <= 6; d2++) {
+        const w = d1 === d2 ? 1 : 2;
+        const oppFinals = uniqueFinalStates(generateTurns(c0.f.state, -color, [d1, d2]));
+        if (oppFinals.length === 0) {
+          exp += w * evaluate(c0.f.state, color);   // ליריב אין מהלך — מצוין עבורי
+          continue;
+        }
+        let worst = Infinity;                        // היריב ממזער את ההערכה שלי
+        for (const of_ of oppFinals) {
+          const v = evaluate(of_.state, color);
+          if (v < worst) worst = v;
+        }
+        exp += w * worst;
+      }
+    }
+    const v = exp / 36;
+    if (v > bestV) { bestV = v; best = c0.f; }
   }
   return best;
 }

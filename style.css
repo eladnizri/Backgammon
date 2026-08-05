@@ -372,6 +372,13 @@ body {
 .lvl-dots { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: flex; gap: 4px; }
 .lvl-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.14); }
 .lvl-dots i.on { background: var(--gold); }
+/* אלוף — כרטיס פרימיום עם מסגרת זהב */
+.lvl-card.champion {
+  border-color: rgba(227,189,119,.5);
+  background: linear-gradient(150deg, color-mix(in srgb, var(--gold) 12%, var(--surface)), var(--surface) 70%);
+}
+.lvl-card.champion .lvl-name { color: var(--gold-hi); }
+.lvl-card.champion:hover { border-color: rgba(227,189,119,.75); }
 
 .row-lbl small { display: block; font-size: .68rem; color: var(--text-dim); margin-top: 1px; }
 
@@ -1077,6 +1084,9 @@ body {
   transition: background .18s, color .18s;
 }
 .seg button.on { background: var(--surface-2); color: var(--text); }
+/* בורר הרמות (4 אפשרויות) — מצטמצם כדי שהכול ייכנס בטלפון */
+#level-seg { flex: 1; }
+#level-seg button { flex: 1; padding: 7px 6px; font-size: .74rem; text-align: center; }
 
 .toggle {
   width: 46px; height: 27px;

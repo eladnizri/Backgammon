@@ -29,7 +29,7 @@
     autoRoll: 480,  // השהיה לפני הטלה אוטומטית
   };
 
-  const LEVEL_NAME = { easy: "רמה קלה", medium: "רמה בינונית", hard: "רמה קשה" };
+  const LEVEL_NAME = { easy: "רמה קלה", medium: "רמה בינונית", hard: "רמה קשה", champion: "אלוף" };
 
   const AVATARS = ["🙂", "😎", "🦊", "🐼", "🐯", "🦉", "🐺", "🦁", "🐨", "🐸", "👑", "⚡"];
 
@@ -43,7 +43,7 @@
         games: 0, wins: 0, losses: 0,
         winKind: { 1: 0, 2: 0, 3: 0 },      // רגיל / מארס / מארס טורקי
         lossKind: { 1: 0, 2: 0, 3: 0 },
-        byLevel: { easy: { g: 0, w: 0 }, medium: { g: 0, w: 0 }, hard: { g: 0, w: 0 } },
+        byLevel: { easy: { g: 0, w: 0 }, medium: { g: 0, w: 0 }, hard: { g: 0, w: 0 }, champion: { g: 0, w: 0 } },
         turns: 0, rated: 0, forced: 0, scoreSum: 0,
         dist: {},
         bestGame: null, worstGame: null,
@@ -2926,7 +2926,7 @@
       <div class="stat-sec">
         <h4>לפי יריב</h4>
         <div class="stat-rows">
-          ${["easy", "medium", "hard"].map(k => {
+          ${["easy", "medium", "hard", "champion"].map(k => {
             const l = d.byLevel[k] || { g: 0, w: 0 };
             const pct = l.g ? Math.round(l.w / l.g * 100) : 0;
             return row(LEVEL_NAME[k], `${l.w}/${l.g}` + (l.g ? ` · ${pct}%` : ""));

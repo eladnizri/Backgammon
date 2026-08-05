@@ -17,11 +17,13 @@ const {
   uniqueFinalStates, legalSingleMoves, applyMove, isRace, evaluate,
   rateTurn, nextMoveOptions, chainOptionsFrom, winKind,
   classifyRoll, relocateSingleMoves, isBlocked, aiChooseDouble, aiRelocate,
+  chooseAiTurn,
 } = vm.runInContext(`({
   WHITE, BLACK, initialState, cloneState, pipCount, generateTurns,
   uniqueFinalStates, legalSingleMoves, applyMove, isRace, evaluate,
   rateTurn, nextMoveOptions, chainOptionsFrom, winKind,
   classifyRoll, relocateSingleMoves, isBlocked, aiChooseDouble, aiRelocate,
+  chooseAiTurn,
 })`, ctx);
 
 let failed = 0;
@@ -150,6 +152,19 @@ console.log("סוג ניצחון:");
   assert(winKind(s, WHITE) === 2, "מארס");
   s.points[20] = -14; s.points[3] = -1;
   assert(winKind(s, WHITE) === 3, "מארס טורקי (חייל בבית המנצח)");
+}
+
+console.log("רמת אלוף — מחזירה מהלך חוקי וטוב:");
+{
+  const s = initialState();
+  const dice = [3, 1];
+  const tr = generateTurns(s, WHITE, dice);
+  const champ = chooseAiTurn(s, WHITE, dice, "champion", tr);
+  const finals = uniqueFinalStates(tr);
+  const keys = new Set(finals.map(f => f.state.points.join(",")));
+  assert(keys.has(champ.state.points.join(",")), "בחירת האלוף היא אחת האפשרויות החוקיות");
+  // 3-1 מהפתיחה: המהלך הקלאסי בונה את נקודת ה-5 (idx 4) — האלוף חייב למצוא אותו
+  assert(champ.state.points[4] === 2, "האלוף בונה את נקודת ה-5 בזריקת 3-1 (המהלך הטוב ביותר)");
 }
 
 console.log("שש-בש טורקי — סיווג זריקות:");
