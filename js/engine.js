@@ -173,45 +173,61 @@ function evaluateFast(s, c) {
    בינה מלאכותית — שלוש רמות
    ========================================================================== */
 
-function chooseAiTurn(state, color, dice, level, turnsResult) {
+/* כל רמת קושי מכוונת לטווח ממוצע-ציון של המאמן:
+   קל 50–70, בינוני 70–85, קשה 85–95, אלוף 95+. הבחירה נמדדת באותה
+   נוסחה שבה המאמן מדרג את השחקן (ציון יחסי למהלך הסטטי הטוב ביותר). */
+const LEVEL_BAND = {
+  easy:     [50, 70],
+  medium:   [70, 85],
+  hard:     [85, 95],
+  champion: [95, 100],
+};
+
+/* ציון-מאמן של מהלך לפי ההפסד מול המהלך הטוב ביותר (זהה ל-rateTurn) */
+function scoreOfLoss(loss) {
+  loss = Math.max(0, loss);
+  return loss <= 0.25 ? 100 : Math.max(5, Math.round(100 - loss * 3.5));
+}
+
+/* avgSoFar = ממוצע ציוני המהלכים הלא-כפויים של המחשב עד כה במשחק (או null).
+   מאפשר לכוון: אם המחשב שיחק חזק מדי מהטווח — הפעם ישחק חלש יותר, ולהפך. */
+function chooseAiTurn(state, color, dice, level, turnsResult, avgSoFar) {
   const tr = turnsResult || generateTurns(state, color, dice);
   const finals = uniqueFinalStates(tr);
-  if (finals.length === 1) return finals[0];
+  if (finals.length === 1) { finals[0].aiScore = null; return finals[0]; }  // כפוי — לא נספר
 
   const scored = finals.map(f => ({ f, v: evaluate(f.state, color) }));
   scored.sort((a, b) => b.v - a.v);
+  const bestV = scored[0].v;
 
-  if (level === "easy") {
-    // רעש אקראי — משחק סביר אך טועה לא מעט
-    const noisy = scored.map(x => ({ f: x.f, v: x.v + (Math.random() * 12 - 6) }));
-    noisy.sort((a, b) => b.v - a.v);
-    return noisy[0].f;
+  if (level === "best") { scored[0].f.aiScore = 100; return scored[0].f; }
+
+  // אלוף: expectimax בין המהלכים הכמעט-אופטימליים בלבד (ציון ≥95),
+  // כך שהוא גם חזק טקטית וגם לא יורד מהטווח.
+  if (level === "champion") {
+    const near = scored.filter(x => scoreOfLoss(bestV - x.v) >= 95);
+    const f = championMove(near.length ? near : [scored[0]], color);
+    f.aiScore = scoreOfLoss(bestV - evaluate(f.state, color));
+    return f;
   }
-  if (level === "medium") return scored[0].f;
 
-  if (level === "champion") return championMove(scored, color);
+  const band = LEVEL_BAND[level] || LEVEL_BAND.medium;
+  const mid = (band[0] + band[1]) / 2;
+  /* בקר פרופורציונלי: מכוון את הממוצע אל מרכז הטווח — אם עד כה שיחקנו
+     חזק מדי, היעד יורד מתחת למרכז, ולהפך. רעש קטן שומר על משחק טבעי. */
+  let target = avgSoFar == null ? mid : mid + (mid - avgSoFar) * 1.5;
+  target += Math.random() * 8 - 4 - 3;   // הטיה קטנה מטה — מרכזת את הממוצע בטווח
+  target = Math.max(5, Math.min(100, target));
 
-  // קשה: expectimax בעומק פליי אחד על המועמדים המובילים
-  const top = scored.slice(0, 4);
-  let best = top[0].f, bestV = -Infinity;
-  for (const cand of top) {
-    let exp = 0;
-    for (let d1 = 1; d1 <= 6; d1++) {
-      for (let d2 = d1; d2 <= 6; d2++) {
-        const w = d1 === d2 ? 1 : 2;
-        const oppFinals = uniqueFinalStates(generateTurns(cand.f.state, -color, [d1, d2]));
-        let oppBest = -Infinity;
-        for (const of_ of oppFinals) {
-          const v = evaluateFast(of_.state, -color);
-          if (v > oppBest) oppBest = v;
-        }
-        exp += w * oppBest;
-      }
-    }
-    const v = cand.v * 0.35 - (exp / 36);
-    if (v > bestV) { bestV = v; best = cand.f; }
+  /* בוחרים את המהלך שהציון שלו הכי קרוב ליעד */
+  let pick = scored[0].f, pickScore = 100, bestDist = Infinity;
+  for (const x of scored) {
+    const sc = scoreOfLoss(bestV - x.v);
+    const d = Math.abs(sc - target);
+    if (d < bestDist) { bestDist = d; pick = x.f; pickScore = sc; }
   }
-  return best;
+  pick.aiScore = pickScore;
+  return pick;
 }
 
 /* אלוף — מאסטר שש-בש: expectimax מלא בעומק תור אחד עם הערכה מדויקת.

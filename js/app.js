@@ -436,6 +436,7 @@
     options: [], sources: new Set(),
     selected: null,
     ratings: [], turnNumber: 0,
+    aiScores: [],      // ציוני המאמן של מהלכי המחשב במשחק — לכיול הרמה
     log: [],           // כל תור: { color, dice, moves, before, after, rating }
     replay: null,      // { i } כשצופים בהקלטה
     coach: null,       // { r, tok, which } בזמן שידור חוזר של המאמן
@@ -829,6 +830,7 @@
     Game.view = Game.state;
     Game.ratings = []; Game.log = []; Game.replay = null;
     Game.coach = null; Game.lastCoach = null;
+    Game.aiScores = [];
     Game.turnNumber = 0;
     Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
     Game.prefix = []; Game.chunks = [];
@@ -1257,6 +1259,18 @@
     playerRollPhase();
   }
 
+  /* ממוצע ציוני המחשב במשחק הנוכחי — משמש לכיול הרמה לטווח היעד */
+  const aiAvg = () =>
+    Game.aiScores.length ? Game.aiScores.reduce((t, s) => t + s, 0) / Game.aiScores.length : null;
+
+  /* בוחר את מהלך המחשב לפי הרמה, ורושם את ציון-המאמן של המהלך לכיול */
+  function aiChooseMoves(tr, dice) {
+    if (tr.maxLen === 0) return [];
+    const choice = chooseAiTurn(Game.state, -Game.me, dice, Game.level, tr, aiAvg());
+    if (choice.aiScore != null) Game.aiScores.push(choice.aiScore);
+    return choice.moves;
+  }
+
   async function aiTurn() {
     const g = Game.gen;
     const dice = [d6(), d6()];
@@ -1267,7 +1281,7 @@
       if (kind === "choose") {
         const pick = aiChooseDouble(Game.state, -Game.me);
         const tr = generateTurns(Game.state, -Game.me, [pick.die, pick.die]);
-        const moves = tr.maxLen === 0 ? [] : chooseAiTurn(Game.state, -Game.me, [pick.die, pick.die], Game.level, tr).moves;
+        const moves = tr.maxLen === 0 ? [] : chooseAiTurn(Game.state, -Game.me, [pick.die, pick.die], "best", tr).moves;
         return playOpponentTurn([pick.die, pick.die], moves, g, "המחשב", { action: "choose" });
       }
       if (kind === "relocate") {
@@ -1276,14 +1290,12 @@
       }
       if (kind === "double") {
         const tr = generateTurns(Game.state, -Game.me, dice);
-        const moves = tr.maxLen === 0 ? [] : chooseAiTurn(Game.state, -Game.me, dice, Game.level, tr).moves;
-        return playOpponentTurn(dice, moves, g, "המחשב", { again: true });
+        return playOpponentTurn(dice, aiChooseMoves(tr, dice), g, "המחשב", { again: true });
       }
     }
 
     const tr = generateTurns(Game.state, -Game.me, dice);
-    const moves = tr.maxLen === 0 ? [] : chooseAiTurn(Game.state, -Game.me, dice, Game.level, tr).moves;
-    await playOpponentTurn(dice, moves, g, "המחשב");
+    await playOpponentTurn(dice, aiChooseMoves(tr, dice), g, "המחשב");
   }
 
   /* המחשב הוציא 1-2 — מציג את הקוביות, מחליף צדדים, והתור עובר אליי */
@@ -1370,7 +1382,7 @@
     Game.selected = null;
     refreshOptions();
     status("נגמר הזמן — המהלך נבחר אוטומטית");
-    const choice = chooseAiTurn(Game.turnStart, Game.me, Game.dice, "medium", Game.turnsResult);
+    const choice = chooseAiTurn(Game.turnStart, Game.me, Game.dice, "best", Game.turnsResult);
     autoPlay(choice.moves, g);
   }
 
@@ -2454,6 +2466,7 @@
     Game.state = initialState();
     Game.view = Game.state;
     Game.ratings = []; Game.log = []; Game.replay = null;
+    Game.aiScores = [];
     Game.turnNumber = 0;
     Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
     Game.prefix = []; Game.chunks = [];

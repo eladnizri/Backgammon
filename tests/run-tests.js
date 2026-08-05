@@ -167,6 +167,41 @@ console.log("רמת אלוף — מחזירה מהלך חוקי וטוב:");
   assert(champ.state.points[4] === 2, "האלוף בונה את נקודת ה-5 בזריקת 3-1 (המהלך הטוב ביותר)");
 }
 
+console.log("כיול רמות לפי ממוצע ציוני המאמן:");
+{
+  // מדמים משחקים שלמים ומודדים את ממוצע ציון המהלכים של כל רמה
+  const rd = () => [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
+  function avgScoreFor(level, games) {
+    const scores = [];
+    for (let gm = 0; gm < games; gm++) {
+      let s = initialState(), color = WHITE;
+      const hist = { [WHITE]: [], [BLACK]: [] };
+      for (let ply = 0; ply < 260; ply++) {
+        if (s.off[WHITE] === 15 || s.off[BLACK] === 15) break;
+        const dice = rd();
+        const tr = generateTurns(s, color, dice);
+        if (tr.maxLen === 0) { color = -color; continue; }
+        const meas = color === WHITE;
+        const arr = hist[color];
+        const avg = arr.length ? arr.reduce((t, x) => t + x, 0) / arr.length : null;
+        const ch = chooseAiTurn(s, color, dice, meas ? level : "best", tr, avg);
+        if (ch.aiScore != null) { arr.push(ch.aiScore); if (meas) scores.push(ch.aiScore); }
+        for (const m of ch.moves) s = applyMove(s, color, m).state;
+        color = -color;
+      }
+    }
+    return scores.reduce((t, x) => t + x, 0) / scores.length;
+  }
+  const easy = avgScoreFor("easy", 6);
+  const medium = avgScoreFor("medium", 6);
+  const hard = avgScoreFor("hard", 6);
+  console.log(`    (easy=${easy.toFixed(1)} medium=${medium.toFixed(1)} hard=${hard.toFixed(1)})`);
+  assert(easy < medium && medium < hard, "הרמות מסודרות: קל < בינוני < קשה");
+  assert(easy <= 74, "קל: ממוצע נמוך (≤74)");
+  assert(medium >= 72 && medium <= 88, "בינוני: ממוצע בטווח ~70-85");
+  assert(hard >= 86 && hard <= 97, "קשה: ממוצע בטווח ~85-95");
+}
+
 console.log("שש-בש טורקי — סיווג זריקות:");
 {
   assert(classifyRoll([1, 2]) === "swap" && classifyRoll([2, 1]) === "swap", "1-2 → החלפת צדדים");
