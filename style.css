@@ -1488,6 +1488,7 @@ body[data-board="ivory"] {
   font-variant-numeric: tabular-nums;
 }
 .h2h-vs { font-size: .6rem; letter-spacing: .12em; color: var(--text-dim); }
+.h2h-games { text-align: center; font-size: .68rem; color: var(--text-dim); margin: 0 0 4px; unicode-bidi: isolate; }
 
 /* ---------- בחירת סוג משחק ---------- */
 

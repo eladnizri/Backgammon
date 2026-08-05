@@ -1708,11 +1708,15 @@
     if (online) Stats.add("onlineGames");
     lvl.g++;
 
-    /* מאזן אישי מול כל יריב מקוון, לפי שמו */
+    /* מאזן אישי מול כל יריב מקוון, לפי שמו — סופר גם משחקים וגם נקודות
+       (מארס = 2, מארס טורקי = 3), כדי שהמאזן ישקף את שיטת הניקוד */
     if (online && Game.oppName) {
       const vs = Stats.d.vs || (Stats.d.vs = {});
-      const rec = vs[Game.oppName] || (vs[Game.oppName] = { w: 0, l: 0 });
-      won ? rec.w++ : rec.l++;
+      const rec = vs[Game.oppName] || (vs[Game.oppName] = { w: 0, l: 0, d: 0, pf: 0, pa: 0 });
+      if (rec.pf == null) rec.pf = rec.w;   // המרה ממאזן ישן שספר רק משחקים
+      if (rec.pa == null) rec.pa = rec.l;
+      if (won) { rec.w++; rec.pf += points; }
+      else { rec.l++; rec.pa += points; }
     }
     if (won) {
       Stats.add("wins"); lvl.w++;
@@ -1750,11 +1754,12 @@
           <span class="pts-n">${r.points}</span>
           <span class="pts-lbl">${r.points === 1 ? "נקודה" : "נקודות"}</span>
         </div>` : ""}
-      ${r.rec ? `<div class="h2h">
-          <span class="h2h-side"><b>${r.rec.w}</b>${escapeHtml(Profiles.active().name)}</span>
-          <span class="h2h-vs">מאזן${r.rec.d ? ` · ${r.rec.d} תיקו` : ""}</span>
-          <span class="h2h-side"><b>${r.rec.l}</b>${escapeHtml(Game.oppName)}</span>
-        </div>` : ""}
+      ${r.rec ? (() => { const pts = recPts(r.rec); return `<div class="h2h">
+          <span class="h2h-side"><b>${pts.pf}</b>${escapeHtml(Profiles.active().name)}</span>
+          <span class="h2h-vs">מאזן נקודות${r.rec.d ? ` · ${r.rec.d} תיקו` : ""}</span>
+          <span class="h2h-side"><b>${pts.pa}</b>${escapeHtml(Game.oppName)}</span>
+        </div>
+        <p class="h2h-games" dir="ltr">${r.rec.w}–${r.rec.l} משחקים</p>`; })() : ""}
       ${summaryHtml(r.sum)}
       <div class="actions">
         <button class="pill-btn wide gold" id="m-again">משחק חוזר</button>
@@ -2225,7 +2230,7 @@
     Stats.add("draws");
     if (Game.oppName) {
       const vs = Stats.d.vs || (Stats.d.vs = {});
-      const rec = vs[Game.oppName] || (vs[Game.oppName] = { w: 0, l: 0 });
+      const rec = vs[Game.oppName] || (vs[Game.oppName] = { w: 0, l: 0, d: 0, pf: 0, pa: 0 });
       rec.d = (rec.d || 0) + 1;
     }
     if (sum.count) {
@@ -2692,16 +2697,24 @@
     host.hidden = !rivals.length;
     if (rivals.length) {
       host.innerHTML =
-        `<span class="rivals-cap">מול חברים</span>` +
-        rivals.slice(0, 4).map(([name, r]) =>
-          `<span class="rival ${r.w > r.l ? "lead" : r.w < r.l ? "trail" : ""}">` +
-          `${escapeHtml(name)} <b dir="ltr">${r.w}-${r.l}</b></span>`).join("");
+        `<span class="rivals-cap">מול חברים · נקודות</span>` +
+        rivals.slice(0, 4).map(([name, r]) => {
+          const pt = recPts(r);
+          return `<span class="rival ${pt.pf > pt.pa ? "lead" : pt.pf < pt.pa ? "trail" : ""}">` +
+          `${escapeHtml(name)} <b dir="ltr">${pt.pf}-${pt.pa}</b></span>`;
+        }).join("");
     }
   }
 
   /* יריבים לפי מספר המשחקים, הרב ביותר קודם */
   const rivalList = () =>
     Object.entries(Stats.d.vs || {}).sort((a, b) => (b[1].w + b[1].l) - (a[1].w + a[1].l));
+
+  /* נקודות המאזן מול יריב, עם המרה לאחור ממאזן ישן שספר רק משחקים */
+  const recPts = r => ({
+    pf: r.pf != null ? r.pf : (r.w || 0),
+    pa: r.pa != null ? r.pa : (r.l || 0),
+  });
 
   $("#home-rivals").onclick = () => showScreen("stats");
 
@@ -2833,13 +2846,14 @@
     const vs = rivalList();
     const vsSection = vs.length ? `
       <div class="stat-sec">
-        <h4>מאזן מול חברים</h4>
+        <h4>מאזן מול חברים · נקודות</h4>
         <div class="stat-rows">
           ${vs.map(([name, r]) => {
-            const cls = r.w > r.l ? "lead" : r.w < r.l ? "trail" : "";
-            const draws = r.d ? `<span class="vs-draw">${r.d} תיקו</span>` : "";
+            const pt = recPts(r);
+            const cls = pt.pf > pt.pa ? "lead" : pt.pf < pt.pa ? "trail" : "";
+            const games = `<span class="vs-draw" dir="ltr">${r.w}–${r.l} משחקים${r.d ? ` · ${r.d} תיקו` : ""}</span>`;
             return `<div class="stat-row"><span>${escapeHtml(name)}</span>` +
-                   `<span class="vs-rec">${draws}<b class="${cls}" dir="ltr">${r.w}-${r.l}</b></span></div>`;
+                   `<span class="vs-rec">${games}<b class="${cls}" dir="ltr">${pt.pf}-${pt.pa}</b></span></div>`;
           }).join("")}
         </div>
       </div>` : "";
