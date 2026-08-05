@@ -1575,6 +1575,15 @@ body[data-board="ivory"] {
 /* החלקה איטית של החיילים למקומם החדש כדי שהסיבוב יהיה ברור */
 #board.swapping .checker { transition-duration: 720ms; }
 
+/* אנימציית פתיחה — "הגשת" החיילים למקומם */
+#board.dealing-board .checker { transition: none; }
+.checker.deal { animation: deal-in 520ms cubic-bezier(.18,.85,.28,1) backwards; }
+@keyframes deal-in {
+  0%   { opacity: 0; transform: translateY(-40%) scale(.4); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+
 .swap-flash {
   position: absolute;
   inset: 0;

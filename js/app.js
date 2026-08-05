@@ -664,6 +664,35 @@
     renderHud(s);
   }
 
+  /* אנימציית פתיחה: מציירים את הלוח ואז "מגישים" את החיילים למקומם
+     בזה אחר זה, בגל משמאל לימין, כדי שתחילת המשחק תרגיש חיה. */
+  let dealTimer = null;
+  const prefersReducedMotion = () =>
+    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function dealOpening() {
+    render();                                   // מיקום סופי של כל החיילים
+    clearTimeout(dealTimer);
+    boardEl.classList.remove("dealing-board");
+    const pieces = [...pool[WHITE], ...pool[BLACK]].filter(p => !p.el.classList.contains("gone"));
+    for (const p of pieces) { p.el.classList.remove("deal"); p.el.style.animationDelay = ""; }
+    if (prefersReducedMotion() || !pieces.length) return 0;
+
+    boardEl.classList.add("dealing-board");     // מקפיא מעברי left/top בזמן ההגשה
+    pieces.sort((a, b) => (parseFloat(a.el.style.left) || 0) - (parseFloat(b.el.style.left) || 0));
+    const step = 15;
+    pieces.forEach((p, i) => {
+      p.el.style.animationDelay = (i * step) + "ms";
+      p.el.classList.add("deal");
+    });
+    const total = pieces.length * step + 520;
+    dealTimer = setTimeout(() => {
+      boardEl.classList.remove("dealing-board");
+      for (const p of pieces) { p.el.classList.remove("deal"); p.el.style.animationDelay = ""; }
+    }, total);
+    return total;
+  }
+
   function renderHud(s) {
     for (const color of [WHITE, BLACK]) {
       const n = s.off[color];
@@ -812,9 +841,11 @@
     hideToast(); hideModal(); hideSheet();
     updateAvgChip();
     updateButtons();
-    render();
+    const dealMs = dealOpening();
     status(Game.autoRoll ? "מתחילים" : "תורך לפתוח — <b>הטל קוביות</b>");
-    armAutoRoll();
+    const g = Game.gen;
+    if (dealMs) setTimeout(() => { if (!stale(g)) armAutoRoll(); }, dealMs);
+    else armAutoRoll();
   }
 
   /* כל טיימר בודק שהדור לא התחלף (למשל אחרי "משחק חדש") */
@@ -2443,16 +2474,20 @@
     maybeShowTurkishIntro();
 
     const rec = (Stats.d.vs || {})[Game.oppName];
-    const head = rec ? ` · המאזן מולו <b>${rec.w}-${rec.l}</b>` : "";
+    const head = rec ? (() => { const pt = recPts(rec); return ` · המאזן מולו <b>${pt.pf}-${pt.pa}</b> נק׳`; })() : "";
 
     if (first === myColor) {
       Game.phase = "playerRoll";
-      updateButtons(); render();
+      updateButtons();
+      const dealMs = dealOpening();
       status("אתה פותח" + head);
-      armAutoRoll();
+      const g = Game.gen;
+      if (dealMs) setTimeout(() => { if (!stale(g)) armAutoRoll(); }, dealMs);
+      else armAutoRoll();
     } else {
       Game.phase = "remote";
-      updateButtons(); render();
+      updateButtons();
+      dealOpening();
       status(`${Game.oppName} פותח${head}`);
     }
   }
