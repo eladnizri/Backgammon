@@ -29,7 +29,7 @@
     autoRoll: 480,  // השהיה לפני הטלה אוטומטית
   };
 
-  const LEVEL_NAME = { easy: "רמה קלה", medium: "רמה בינונית", hard: "רמה קשה", champion: "אלוף" };
+  const LEVEL_NAME = { easy: "רמה קלה", medium: "רמה בינונית", hard: "רמה קשה", champion: "מאסטר זלנצר" };
 
   const AVATARS = ["🙂", "😎", "🦊", "🐼", "🐯", "🦉", "🐺", "🦁", "🐨", "🐸", "👑", "⚡"];
 
@@ -552,10 +552,18 @@
 
   /* הלוח מתאים את יחס הצלעות שלו לשטח הפנוי בפועל, ולכן הוא ממלא את המסך
      בכל מכשיר ובכל אוריינטציה במקום להסתמך על נקודות שבירה קבועות. */
+  let lastFit = { w: 0, h: 0 };
   function fitBoard() {
+    /* בזמן שהמשתמש מז׳ם (pinch) אין לשנות את גודל הלוח — זה מה שגרם לקפיצה */
+    const vv = window.visualViewport;
+    if (vv && vv.scale > 1.01) return;
     const a = $("#board-area").getBoundingClientRect();
     const w = a.width - 20, h = a.height - 8;   // מקביל ל-padding ב-CSS
     if (w <= 0 || h <= 0) return;
+    /* מדלגים על שינויים זעירים (למשל הופעת/היעלמות שורת הכתובת) שלא מצדיקים
+       חישוב מחדש — כך הלוח לא "קופץ" על כל תזוזה קטנה של אזור התצוגה */
+    if (Math.abs(w - lastFit.w) < 1.5 && Math.abs(h - lastFit.h) < 1.5) return;
+    lastFit = { w, h };
 
     /* יחס הצלעות עוקב אחרי השטח הפנוי, אך מוגבל לטווח שנראה כמו לוח אמיתי.
        כשההגבלה נכנסת לתוקף הלוח מוקטן כדי שימשיך להיכנס — בלי לדחוף
@@ -823,7 +831,7 @@
 
   /* ---------- זרימת המשחק ---------- */
 
-  function newGame() {
+  function newGame(opts = {}) {
     Game.gen++;
     Game.turkishAction = null; Game.naturalDouble = false;
     Game.state = initialState();
@@ -836,7 +844,9 @@
     Game.prefix = []; Game.chunks = [];
     Game.options = []; Game.sources = new Set();
     Game.selected = null;
-    Game.phase = "playerRoll";
+    /* ברמאץ' מול המחשב — מי שניצח את המשחק הקודם פותח */
+    const cpuStarts = opts.rematch && Game.mode === "cpu" && Game.lastResult && !Game.lastResult.won;
+    Game.phase = cpuStarts ? "ai" : "playerRoll";
     Game.startedAt = Date.now();
     stopTimer();
     clearTimeout(Game.rollTimer);
@@ -844,10 +854,17 @@
     updateAvgChip();
     updateButtons();
     const dealMs = dealOpening();
-    status(Game.autoRoll ? "מתחילים" : "תורך לפתוח — <b>הטל קוביות</b>");
     const g = Game.gen;
-    if (dealMs) setTimeout(() => { if (!stale(g)) armAutoRoll(); }, dealMs);
-    else armAutoRoll();
+    if (cpuStarts) {
+      status("המחשב ניצח בפעם הקודמת — הוא פותח");
+      setTimeout(() => { if (!stale(g)) aiTurn(); }, (dealMs || 0) + T.handoff);
+    } else {
+      const won = opts.rematch && Game.lastResult && Game.lastResult.won;
+      status(won ? "ניצחת בפעם הקודמת — אתה פותח"
+                 : (Game.autoRoll ? "מתחילים" : "תורך לפתוח — <b>הטל קוביות</b>"));
+      if (dealMs) setTimeout(() => { if (!stale(g)) armAutoRoll(); }, dealMs);
+      else armAutoRoll();
+    }
   }
 
   /* כל טיימר בודק שהדור לא התחלף (למשל אחרי "משחק חדש") */
@@ -1813,7 +1830,7 @@
         <button class="pill-btn wide" id="m-share">שתף</button>
       </div>
       <p class="note" id="m-note" hidden></p>`);
-    $("#m-again").onclick = () => (r.online ? requestRematch() : newGame());
+    $("#m-again").onclick = () => (r.online ? requestRematch() : newGame({ rematch: true }));
     $("#m-home").onclick = goHome;
     $("#m-replay").onclick = enterReplay;
     $("#m-share").onclick = shareSummary;
@@ -2439,7 +2456,10 @@
   }
 
   function hostStartRematch() {
-    const first = Math.random() < 0.5 ? WHITE : BLACK;
+    /* המנצח של המשחק הקודם פותח (המארח הוא תמיד WHITE במשחק חדש) */
+    const first = (Game.lastResult && Game.lastResult.won) ? WHITE
+      : (Game.lastResult && Game.lastResult.draw) ? (Math.random() < 0.5 ? WHITE : BLACK)
+      : BLACK;
     Game.net.myRematch = Game.net.theirRematch = false;
     netSend({ t: "rematchGo", first });
     startOnlineGame(WHITE, first);
@@ -3103,9 +3123,16 @@
   boardEl.addEventListener("pointerup", onPointerUp);
   boardEl.addEventListener("pointercancel", onPointerUp);
 
-  if (window.ResizeObserver) new ResizeObserver(fitBoard).observe($("#board-area"));
-  window.addEventListener("resize", fitBoard);
-  window.addEventListener("orientationchange", () => setTimeout(fitBoard, 150));
+  /* מאחדים פרצי אירועים (resize, גלילה של שורת הכתובת) לחישוב אחד בפריים */
+  let fitQueued = false;
+  function fitBoardSoon() {
+    if (fitQueued) return;
+    fitQueued = true;
+    requestAnimationFrame(() => { fitQueued = false; fitBoard(); });
+  }
+  if (window.ResizeObserver) new ResizeObserver(fitBoardSoon).observe($("#board-area"));
+  window.addEventListener("resize", fitBoardSoon);
+  window.addEventListener("orientationchange", () => setTimeout(fitBoard, 200));
   /* מדידה חוזרת אחרי שהפריסה והגופנים התייצבו */
   requestAnimationFrame(() => requestAnimationFrame(fitBoard));
   window.addEventListener("load", fitBoard);

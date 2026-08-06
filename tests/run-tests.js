@@ -127,6 +127,21 @@ console.log("אפשרויות המשך ושרשראות:");
   assert(chains.some(ch => ch.dest === 12), "שרשרת 24/13 (בריחת חייל אחורי) קיימת");
 }
 
+console.log("הורדה — כל חייל יורד עם הקובייה שלו (בכל סדר):");
+{
+  // חיילים בנקודה 5 (idx4) ובנקודה 3 (idx2); זריקה 5,3
+  const s = emptyState();
+  s.points[4] = 1; s.points[2] = 1; s.off[WHITE] = 13; s.points[23] = -15;
+  // הסדר [3,5] בזריקה לא אמור לכפות הורדה עם 3 קודם
+  for (const dice of [[5, 3], [3, 5]]) {
+    const tr = generateTurns(s, WHITE, dice);
+    const off5 = chainOptionsFrom(tr, [], 4).find(c => c.dest === "off");
+    const off3 = chainOptionsFrom(tr, [], 2).find(c => c.dest === "off");
+    assert(off5 && off5.moves[0].die === 5, `נקודה 5 יורדת עם 5 (זריקה ${dice})`);
+    assert(off3 && off3.moves[0].die === 3, `נקודה 3 יורדת עם 3 (זריקה ${dice})`);
+  }
+}
+
 console.log("דירוג מהלכים:");
 {
   const s = initialState();
