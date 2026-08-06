@@ -516,7 +516,11 @@ body {
   transition: background .3s var(--ease), box-shadow .3s;
 }
 .borne i.on { background: linear-gradient(180deg, var(--gold-hi), var(--gold-dim)); box-shadow: 0 0 6px rgba(227, 189, 119, .55); }
-.borne.target { box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(227, 189, 119, .55); cursor: pointer; }
+.borne.target { box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(227, 189, 119, .55); cursor: pointer; animation: borne-pulse 1s ease-in-out infinite; }
+@keyframes borne-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(227, 189, 119, .45); }
+  50%      { box-shadow: 0 0 0 3px var(--gold-hi), 0 0 22px rgba(227, 189, 119, .8); }
+}
 
 .pipbox { flex: none; text-align: center; line-height: 1.05; }
 .pipbox b { display: block; font-size: .95rem; font-weight: 800; letter-spacing: -.02em; }

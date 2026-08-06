@@ -1044,9 +1044,16 @@
     Game.phase = "relocate";
     refreshRelocate();
     startTimer(Game.me);
-    status("יצא <b>5-6</b> — בחר חייל והעבר אותו לכל מקום (2 חיילים)");
+    status(`יצא <b>5-6</b> — ${relocateHint()} (2 חיילים)`);
     updateButtons();
     render();
+  }
+
+  /* בהעברה חופשית (5-6): כשכל החיילים בבית אפשר גם להוריד מהלוח */
+  function relocateHint() {
+    return allInHome(Game.view, Game.me)
+      ? "בחר חייל והעבר לכל מקום, או הוצא מהלוח 🎯"
+      : "בחר חייל והעבר אותו לכל מקום";
   }
 
   function refreshRelocate() {
@@ -1116,7 +1123,7 @@
       updateButtons();
       status("סיימת את המהלכים — <b>סיים תור</b> לאישור");
     } else if (relocating) {
-      status(`נותר להעביר עוד חייל אחד`);
+      status(`נותר חייל אחד — ${relocateHint()}`);
     } else {
       status(`נותרו מהלכים — ${Game.options.length === 1 ? "מהלך אחד" : "בחר חייל"}`);
     }
