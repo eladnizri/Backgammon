@@ -1073,6 +1073,11 @@ body {
   border-top: 1px solid var(--line);
 }
 .row-lbl { font-size: .87rem; color: var(--text); }
+/* שורה עם הרבה אפשרויות (ערכת לוח) — התווית למעלה, הכפתורים נגללים לשורות */
+.row.row-wrap { flex-direction: column; align-items: stretch; gap: 9px; }
+.row.row-wrap .row-lbl { align-self: flex-start; }
+#board-seg { flex-wrap: wrap; }
+#board-seg button { flex: 1 0 26%; }
 
 .seg { display: flex; background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 2px; }
 .seg button {
@@ -1304,6 +1309,34 @@ body[data-board="ivory"] {
   --chk-b-1: #55606c; --chk-b-2: #2f3841; --chk-b-3: #161c22; --chk-b-ring: #aebbc8;
   --die-a: #ffffff;   --die-b: #e4e0d5;   --die-pip: #2c343d;
   --die-ai-a: #46505b; --die-ai-b: #232a31; --die-ai-pip: #eef2f6;
+}
+
+/* שחף — קו-חוף מינימליסטי: נייר-חול חמים מול דיו כחול-ים עמוק */
+body[data-board="coast"] {
+  --felt: #e7ded0;
+  --pnum: rgba(24, 44, 58, .5);
+  --pt-light-a: #f4eee0; --pt-light-b: #ddd2bd;
+  --pt-dark-a: #24404f;  --pt-dark-b: #172a36;
+  --frame-a: #22394a; --frame-b: #142530; --frame-c: #0d1a22;
+  --bar-a: #162833;   --bar-b: #22394a;
+  --chk-w-1: #fffdf7; --chk-w-2: #eee6d4; --chk-w-3: #cfc4ac; --chk-w-ring: #8a8168;
+  --chk-b-1: #2f4a5a; --chk-b-2: #182b37; --chk-b-3: #0a161d; --chk-b-ring: #9fbccb;
+  --die-a: #fffdf7;   --die-b: #e0d7c3;   --die-pip: #1b3240;
+  --die-ai-a: #253c4a; --die-ai-b: #0f1e28; --die-ai-pip: #e6f0f5;
+}
+
+/* לגונה — מים מוזהבים בשמש עם טורקיז: חול-זהב חמים מול מים ירוק-כחול */
+body[data-board="lagoon"] {
+  --felt: #a9762f;
+  --pnum: rgba(255, 238, 205, .6);
+  --pt-light-a: #f2d69d; --pt-light-b: #dcb46a;
+  --pt-dark-a: #1c6f78;  --pt-dark-b: #114c53;
+  --frame-a: #6f4720; --frame-b: #472a10; --frame-c: #2f1b0a;
+  --bar-a: #3f2911;   --bar-b: #63431f;
+  --chk-w-1: #fffdf5; --chk-w-2: #f4e7c9; --chk-w-3: #d3bd8b; --chk-w-ring: #927b43;
+  --chk-b-1: #1a6b74; --chk-b-2: #0d434b; --chk-b-3: #041d21; --chk-b-ring: #74c2ca;
+  --die-a: #fffdf5;   --die-b: #ecdcb8;   --die-pip: #6d4a20;
+  --die-ai-a: #12545c; --die-ai-b: #062529; --die-ai-pip: #d7f2f5;
 }
 
 .stat-row b.lead { color: #4ecb82; }
