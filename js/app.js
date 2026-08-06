@@ -484,9 +484,12 @@
     bar.style.width = GEO.barW + "%";
     boardEl.appendChild(bar);
 
-    /* שכבת "סימן מים" — התמונה של הערכה, מתחת לחיילים, לא מפריעה למשחק */
+    /* שכבת "סימן מים" — התמונה של הערכה, מתחת לחיילים, לא מפריעה למשחק.
+       בערכת "שחף" מוצבות שתי ציפורי אלבטרוס (צד ימין ושמאל) עם כנפיים
+       שמנפנפות כשמתבצעת אכילה. */
     const art = document.createElement("div");
     art.className = "board-art";
+    art.innerHTML = albatrossSvg("l") + albatrossSvg("r");
     boardEl.appendChild(art);
 
     diceLayer = document.createElement("div");
@@ -1082,7 +1085,7 @@
       if (stale(g)) return;
       commitMove(m);
       render();
-      Sfx.place();
+      if (m.hit) { Sfx.hit(); flashHit(m.to); } else Sfx.place();
     }
     await delay(T.move + T.settle);
     if (!stale(g)) endPlayerTurn(false);
@@ -1415,8 +1418,31 @@
     autoPlay(choice.moves, g);
   }
 
+  /* אלבטרוס בקו-אמנות: גוף קטן ושתי כנפיים שאפשר לנפנף בנפרד */
+  function albatrossSvg(side) {
+    return `<svg class="albatross ${side}" viewBox="0 0 220 120" aria-hidden="true">
+      <g class="wing left"><path d="M110 62 C90 44 64 39 45 46 C33 50 21 57 9 65"/></g>
+      <g class="wing right"><path d="M110 62 C130 44 156 39 175 46 C187 50 199 57 211 65"/></g>
+      <path class="body" d="M104 63 Q110 53 116 63 Q110 72 104 63 Z"/>
+      <path class="head" d="M110 57 L110 49"/>
+    </svg>`;
+  }
+
+  /* מנפנף בכנפי האלבטרוס לכמה שניות — מופעל בכל אכילה (נראה בערכת "שחף") */
+  let flapTimer = null;
+  function flapAlbatross() {
+    const art = boardEl && boardEl.querySelector(".board-art");
+    if (!art) return;
+    art.classList.remove("flapping");
+    void art.offsetWidth;              // מאתחל את האנימציה גם באכילות רצופות
+    art.classList.add("flapping");
+    clearTimeout(flapTimer);
+    flapTimer = setTimeout(() => art.classList.remove("flapping"), 2200);
+  }
+
   /* מדגיש את החייל שהוכה בזמן שהוא עף אל הבר, ומשאיר הבזק במקום הפגיעה */
   function flashHit(atIdx) {
+    flapAlbatross();
     const p = topPiece.get("bar");
     if (p) {
       p.el.classList.add("flying");

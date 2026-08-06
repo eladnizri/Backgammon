@@ -14,7 +14,6 @@ const SHELL = [
   "./icon.svg",
   "./icon-192.png",
   "./icon-512.png",
-  "./img/coast-seagull.png",
   "./img/lagoon-couple.jpg",
 ];
 

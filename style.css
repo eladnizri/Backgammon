@@ -1324,11 +1324,31 @@ body[data-board="ivory"] {
   transition: opacity .3s;
   border-radius: 8px;
 }
-body[data-board="coast"] .board-art {
-  background-image: url("img/coast-seagull.png");
-  background-size: 58% auto;
-  opacity: .16;
+body[data-board="coast"] .board-art { opacity: .17; }
+
+/* שתי ציפורי אלבטרוס — אחת בכל חצי לוח (מוצגות רק בערכת "שחף") */
+.albatross {
+  position: absolute;
+  top: 50%;
+  width: 33%;
+  height: auto;
+  transform: translateY(-50%);
+  display: none;
+  overflow: visible;
 }
+.albatross.l { left: 5%; }
+.albatross.r { right: 5%; }
+.albatross path { fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.albatross .body { fill: currentColor; stroke: none; }
+.albatross .wing { transform-box: view-box; transform-origin: 110px 61px; }
+body[data-board="coast"] .albatross { display: block; color: #1a2b37; }
+
+/* נפנוף כנפיים באכילה */
+body[data-board="coast"] .board-art.flapping { opacity: .34; }
+.board-art.flapping .albatross .wing.left  { animation: flap-l .5s ease-in-out 4; }
+.board-art.flapping .albatross .wing.right { animation: flap-r .5s ease-in-out 4; }
+@keyframes flap-l { 0%, 100% { transform: rotate(4deg); }  50% { transform: rotate(-24deg); } }
+@keyframes flap-r { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(24deg); } }
 body[data-board="lagoon"] .board-art {
   background-image: url("img/lagoon-couple.jpg");
   background-size: cover;
