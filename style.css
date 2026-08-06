@@ -1311,6 +1311,34 @@ body[data-board="ivory"] {
   --die-ai-a: #46505b; --die-ai-b: #232a31; --die-ai-pip: #eef2f6;
 }
 
+/* שכבת סימן-מים של הערכה — יושבת מעל המשולשים ומתחת לחיילים */
+.board-art {
+  position: absolute;
+  left: 2.4%; right: 2.4%;
+  top: 2.6%; bottom: 2.6%;
+  z-index: 3;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0;                       /* ברירת מחדל — בלי סימן מים */
+  transition: opacity .3s;
+  border-radius: 8px;
+}
+body[data-board="coast"] .board-art {
+  background-image: url("img/coast-seagull.png");
+  background-size: 58% auto;
+  opacity: .16;
+}
+body[data-board="lagoon"] .board-art {
+  background-image: url("img/lagoon-couple.jpg");
+  background-size: cover;
+  background-position: center 32%;
+  opacity: .14;
+  mix-blend-mode: luminosity;       /* מתמזג עם צבעי הלוח */
+  -webkit-mask-image: radial-gradient(ellipse 75% 80% at 50% 42%, #000 55%, transparent 100%);
+          mask-image: radial-gradient(ellipse 75% 80% at 50% 42%, #000 55%, transparent 100%);
+}
+
 /* שחף — קו-חוף מינימליסטי: נייר-חול חמים מול דיו כחול-ים עמוק */
 body[data-board="coast"] {
   --felt: #e7ded0;

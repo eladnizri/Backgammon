@@ -1,6 +1,6 @@
 /* Service worker — מאפשר לפתוח את המשחק גם בלי אינטרנט.
    כל שינוי בקבצים מחייב העלאת CACHE כדי שהגרסה החדשה תיתפס. */
-const CACHE = "shesh-besh-v1";
+const CACHE = "shesh-besh-v2";
 
 const SHELL = [
   "./",
@@ -14,6 +14,8 @@ const SHELL = [
   "./icon.svg",
   "./icon-192.png",
   "./icon-512.png",
+  "./img/coast-seagull.png",
+  "./img/lagoon-couple.jpg",
 ];
 
 self.addEventListener("install", e => {

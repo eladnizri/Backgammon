@@ -484,6 +484,11 @@
     bar.style.width = GEO.barW + "%";
     boardEl.appendChild(bar);
 
+    /* שכבת "סימן מים" — התמונה של הערכה, מתחת לחיילים, לא מפריעה למשחק */
+    const art = document.createElement("div");
+    art.className = "board-art";
+    boardEl.appendChild(art);
+
     diceLayer = document.createElement("div");
     boardEl.appendChild(diceLayer);
 
