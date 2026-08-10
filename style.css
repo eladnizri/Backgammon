@@ -1719,3 +1719,83 @@ body[data-board="lagoon"] {
   75%  { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* ==========================================================================
+   עיצוב נאומורפי — רקע אחיד, כרטיסים בצל כפול רך (בהיר מלמעלה, כהה מלמטה),
+   פינות עגולות, בלי קווי מתאר. שכבה עצמאית בסוף הקובץ (קל לכוונן/להסיר).
+   הלוח עצמו נשאר חד וברור — הסגנון חל רק על ממשק המסביב.
+   ========================================================================== */
+:root {
+  --bg-0: #171c22;
+  --bg-1: #171c22;
+  --surface:   #1a2028;
+  --surface-2: #20272f;
+  --line: rgba(0, 0, 0, .28);            /* קו-הפרדה כמו חריץ עדין */
+  --nm-lite: rgba(255, 255, 255, .055);
+  --nm-dark: rgba(0, 0, 0, .60);
+  --nm-up:    -5px -5px 12px var(--nm-lite),  6px 6px 15px var(--nm-dark);
+  --nm-up-sm: -3px -3px 7px  var(--nm-lite),  3px 3px 8px  var(--nm-dark);
+  --nm-in:    inset 5px 5px 11px var(--nm-dark), inset -4px -4px 10px var(--nm-lite);
+  --nm-in-sm: inset 3px 3px 7px  var(--nm-dark), inset -3px -3px 6px  var(--nm-lite);
+}
+
+body { background: var(--bg-0); }
+
+/* כרטיסים וכפתורים מוגבהים — אותו גוון רקע, מובחנים רק בצל הכפול */
+.who-chip, .home-quick .q, .home-btn, .ghost-btn, #avg-chip, .prof-av, .prof-ico,
+.strip, .stat-card, .lvl-card, .pill-btn, .coach-info, .replay-info,
+#rating, .points-badge, .h2h, .rules-list li, #dbl-bar {
+  border: none;
+  background: var(--surface);
+  box-shadow: var(--nm-up);
+}
+.home-quick .q, .stat-card, .prof-av, .prof-ico, #rating, .points-badge, .h2h { box-shadow: var(--nm-up-sm); }
+
+/* לחיצה — הכרטיס "נלחץ" פנימה */
+.who-chip:active, .home-btn:active, .ghost-btn:active, .pill-btn:active,
+.lvl-card:active, #avg-chip:active {
+  box-shadow: var(--nm-in);
+  background: var(--surface);
+  transform: none;
+}
+
+/* בורר מקטעים — מגרעת שקועה, והכפתור הפעיל בולט החוצה */
+.seg { border: none; background: var(--surface); box-shadow: var(--nm-in-sm); }
+.seg button.on { background: var(--surface-2); box-shadow: var(--nm-up-sm); }
+
+/* מגרעות שקועות: פסי התקדמות, מגש ההורדה, מסלול הטיימר */
+.qbar .track { background: var(--surface); box-shadow: var(--nm-in-sm); }
+.borne { border: none; background: var(--surface); box-shadow: var(--nm-in-sm); }
+.avatar { border: none; box-shadow: var(--nm-up-sm); }
+
+/* משטחים גדולים */
+.sheet, #modal { border: none; background: var(--surface); box-shadow: var(--nm-up); }
+.stat-rows { border: none; background: var(--surface); box-shadow: var(--nm-in-sm); overflow: hidden; }
+
+/* הרצועה הפעילה — הבלטה זהובה עדינה בתוך הסגנון הרך */
+.strip.active {
+  background: var(--surface-2);
+  box-shadow: var(--nm-up), inset 0 0 0 1px rgba(227, 189, 119, .22);
+}
+
+/* כפתורי הזהב והקובייה — מוגבהים עם זוהר חם, ונלחצים פנימה */
+.home-btn.primary, .pill-btn.gold, .roll-btn {
+  border: none;
+  box-shadow:
+    -4px -4px 10px rgba(255, 255, 255, .06),
+    5px 5px 14px rgba(0, 0, 0, .55),
+    0 10px 26px -12px rgba(227, 189, 119, .5);
+}
+.home-btn.primary:active, .pill-btn.gold:active, .roll-btn:active {
+  box-shadow:
+    inset 4px 4px 10px rgba(0, 0, 0, .38),
+    inset -3px -3px 8px rgba(255, 255, 255, .18);
+}
+
+/* הלוח — צל חיצוני רך שמתיישב בתוך המשטח, הפנים נשאר חד לחלוטין */
+#board {
+  box-shadow:
+    -6px -6px 16px var(--nm-lite),
+    10px 12px 30px rgba(0, 0, 0, .72),
+    0 1px 0 rgba(255, 255, 255, .06) inset;
+}
