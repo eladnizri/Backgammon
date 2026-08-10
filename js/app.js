@@ -3198,6 +3198,15 @@
   if (window.ResizeObserver) new ResizeObserver(fitBoardSoon).observe($("#board-area"));
   window.addEventListener("resize", fitBoardSoon);
   window.addEventListener("orientationchange", () => setTimeout(fitBoard, 200));
+  /* שורת הכתובת/המקלדת משנים את אזור התצוגה בלי אירוע resize רגיל —
+     visualViewport מודיע על כך, וכך הלוח מתאים את עצמו בלי צורך בזום ידני */
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", fitBoardSoon);
+    window.visualViewport.addEventListener("scroll", fitBoardSoon);
+  }
+  /* חזרה לאפליקציה (מהרקע/כרטיסייה אחרת) — מודדים מחדש ליתר ביטחון */
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) fitBoardSoon(); });
+  window.addEventListener("pageshow", fitBoard);
   /* מדידה חוזרת אחרי שהפריסה והגופנים התייצבו */
   requestAnimationFrame(() => requestAnimationFrame(fitBoard));
   window.addEventListener("load", fitBoard);

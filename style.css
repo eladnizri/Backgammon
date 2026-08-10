@@ -40,9 +40,17 @@
 @media (max-aspect-ratio: 4/5)   { :root { --ar: .66; } }
 @media (min-aspect-ratio: 4/5) and (max-aspect-ratio: 5/4) { :root { --ar: 1; } }
 
-html, body { margin: 0; height: 100%; }
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;              /* אין גלילה של הדף עצמו — רק אזורים פנימיים נגללים */
+  overscroll-behavior: none;     /* בלי "קפיצת גומי" בקצוות */
+}
 
 body {
+  position: fixed;               /* נועל את הדף למקומו, שלא יזוז עם שורת הכתובת */
+  inset: 0;
+  width: 100%;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: var(--text);
   background:
@@ -50,15 +58,16 @@ body {
     radial-gradient(90% 60% at 50% 108%, #17222e 0%, transparent 60%),
     var(--bg-0);
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* ---------- מסכים ---------- */
 
 .screen {
   position: fixed;
-  inset: 0;
-  height: 100dvh;
+  top: 0; left: 0; right: 0;
+  height: 100vh;      /* גיבוי לדפדפנים ישנים */
+  height: 100svh;     /* גובה יציב (עם שורת הכתובת) — כל הממשק תמיד נכנס בלי גלילה */
   display: none;
   flex-direction: column;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
