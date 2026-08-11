@@ -29,7 +29,7 @@
     autoRoll: 480,  // השהיה לפני הטלה אוטומטית
   };
 
-  const LEVEL_NAME = { easy: "רמה קלה", medium: "רמה בינונית", hard: "רמה קשה", champion: "מאסטר זלנצר" };
+  const LEVEL_NAME = { easy: "רמה קלה", medium: "רמה בינונית", hard: "רמה קשה", champion: "מאסטר" };
 
   const AVATARS = ["🙂", "😎", "🦊", "🐼", "🐯", "🦉", "🐺", "🦁", "🐨", "🐸", "👑", "⚡"];
 
@@ -443,6 +443,8 @@
     lastCoach: null,   // הדירוג האחרון שניתן להקיש עליו להסבר
     gen: 0,            // מבטל טיימרים ישנים אחרי "משחק חדש"
     toastTimer: null,
+    hintCount: 0,      // כמה רמזים נלקחו במשחק הנוכחי (מול המחשב)
+    hintMove: null,    // { from, to } — המהלך המומלץ המסומן כעת על הלוח
   };
 
   const boardEl = $("#board");
@@ -450,6 +452,7 @@
   const rollBtn = $("#roll-btn");
   const undoBtn = $("#undo-btn");
   const confirmBtn = $("#confirm-btn");
+  const hintBtn = $("#hint-btn");
   const ratingEl = $("#rating");
 
   let pieceLayer, diceLayer, pointEls = [], pnumEls = [], borneEls = {}, stripEls = {};
@@ -678,7 +681,17 @@
 
     renderDice();
     renderSelection();
+    renderHint();
     renderHud(s);
+  }
+
+  /* מסמן על הלוח את המהלך שהרמז ממליץ עליו (מקור + יעד) */
+  function renderHint() {
+    pointEls.forEach(p => p.classList.remove("hint-hl"));
+    const h = Game.hintMove;
+    if (!h || Game.phase !== "playerMove") return;
+    if (typeof h.from === "number" && pointEls[h.from]) pointEls[h.from].classList.add("hint-hl");
+    if (typeof h.to === "number" && pointEls[h.to]) pointEls[h.to].classList.add("hint-hl");
   }
 
   /* אנימציית פתיחה: מציירים את הלוח ואז "מגישים" את החיילים למקומם
@@ -835,6 +848,8 @@
     /* ביטול זמין כל עוד התור לא אושר, כולל בשלב האישור וההעברה */
     undoBtn.hidden = !(Game.prefix.length > 0 &&
       (Game.phase === "playerMove" || Game.phase === "confirm" || Game.phase === "relocate"));
+    /* רמז — רק מול המחשב, כשיש לשחקן מהלך רגיל לבחור */
+    if (hintBtn) hintBtn.hidden = !(Game.mode === "cpu" && Game.phase === "playerMove");
   }
 
   /* ---------- זרימת המשחק ---------- */
@@ -847,6 +862,7 @@
     Game.ratings = []; Game.log = []; Game.replay = null;
     Game.coach = null; Game.lastCoach = null;
     Game.aiScores = [];
+    Game.hintCount = 0; Game.hintMove = null;
     Game.turnNumber = 0;
     Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
     Game.prefix = []; Game.chunks = [];
@@ -922,6 +938,7 @@
     Game.view = Game.state;
     Game.prefix = []; Game.chunks = [];
     Game.selected = null;
+    Game.hintMove = null;
     Game.turnNumber++;
     Game.turnsResult = generateTurns(Game.state, Game.me, dice);
     Game.phase = "playerMove";
@@ -1099,6 +1116,7 @@
   }
 
   function commitMove(m) {
+    Game.hintMove = null;             // המהלך בוצע — מנקים את סימון הרמז
     if (m.hit) Stats.add("hitsMade");
     if (m.to === "off") Stats.add("borneOff");
     if (m.from === "bar") Stats.add("barEntries");
@@ -1145,6 +1163,7 @@
     for (const m of Game.prefix) s = applyMove(s, Game.me, m).state;
     Game.view = s;
     Game.selected = null;
+    Game.hintMove = null;
     if (reloc) {
       Game.relocLeft = 2 - Game.prefix.length;
       Game.phase = "relocate";
@@ -1674,6 +1693,60 @@
     clearTimeout(Game.toastTimer);
     ratingEl.hidden = true;
     statusEl.hidden = false;
+  }
+
+  /* ---------- רמז ----------
+     מציג לשחקן את המהלך המומלץ (ציון 100) עם הסבר קצר, ומסמן אותו על הלוח.
+     אין הגבלה על מספר הרמזים — רק קריצת הומור אחרי שימוש מוגזם. */
+  function showHint() {
+    if (Game.mode !== "cpu" || Game.phase !== "playerMove") return;
+    const tr = Game.turnsResult;
+    if (!tr || tr.maxLen === 0) return;
+
+    /* המהלך השלם הטוב ביותר שמתיישב עם מה שכבר שיחקת בתור */
+    const finals = uniqueFinalStates(tr).filter(q => movesMatchPrefix(q.moves, Game.prefix));
+    if (!finals.length) return;
+    let best = finals[0], bestV = evaluate(best.state, Game.me);
+    for (const q of finals) {
+      const v = evaluate(q.state, Game.me);
+      if (v > bestV) { bestV = v; best = q; }
+    }
+
+    const remaining = best.moves.slice(Game.prefix.length);
+    if (!remaining.length) return;
+    const first = remaining[0];
+    Game.hintMove = { from: first.from, to: first.to };
+
+    const expl = buildExplanation(Game.turnStart, Game.me, best.state, best.state, 0, 100);
+    hideToast();
+    status(`💡 <b>מומלץ:</b> ${movesHtml(remaining)} — ${expl}`);
+    render();
+
+    Game.hintCount++;
+    hintNudge(Game.hintCount);
+  }
+
+  /* קריצות הומור לפי כמות הרמזים — בלי להגביל בפועל */
+  function hintNudge(n) {
+    let msg = null;
+    if (n > 10) msg = "שמע יש לך מזל שלא עשיתי הגבלה 😅";
+    else if (n > 5) msg = "עם כל העזרה הזאת עדיף תשחק דמקה 🙃";
+    else if (n > 3) msg = "אח שלי הגזמת, שחק קצת לבד 💪";
+    if (msg) snack(msg);
+  }
+
+  let snackTimer = null;
+  function snack(text) {
+    const el = $("#snack");
+    if (!el) return;
+    el.textContent = text;
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add("show"));
+    clearTimeout(snackTimer);
+    snackTimer = setTimeout(() => {
+      el.classList.remove("show");
+      setTimeout(() => { el.hidden = true; }, 320);
+    }, 3400);
   }
 
   function updateAvgChip() {
@@ -2737,7 +2810,7 @@
     showScreen("home");
   }
 
-  function startGame(level) {
+  function startGame(level, forceTutorial = false) {
     netTeardown();
     Game.mode = "cpu";
     Game.me = WHITE;
@@ -2755,7 +2828,7 @@
     showScreen("game");
 
     /* המדריך רלוונטי רק לשש-בש רגיל; בטורקי מציגים הסבר חוקים נפרד */
-    if (Game.variant === "regular" && level === "easy" && !Profiles.active().stats.tutorialDone) {
+    if (Game.variant === "regular" && level === "easy" && (forceTutorial || !Profiles.active().stats.tutorialDone)) {
       Game.phase = "idle";
       Game.dice = [];
       Game.state = initialState();
@@ -3157,17 +3230,15 @@
 
   $("#sheet-resign").onclick = resign;
 
-  /* פתיחת המדריך ידנית — עוצר את המשחק הנוכחי ומתחיל אותו מחדש אחריו */
+  /* פתיחת המדריך ידנית — פותח משחק רגיל ברמה הקלה ומפעיל עליו את המדריך */
   $("#sheet-tut").onclick = () => {
     hideSheet();
     Game.gen++;
     stopTimer();
     clearTimeout(Game.rollTimer);
-    Game.phase = "idle";
-    Game.dice = [];
-    updateButtons();
     hideToast(); hideModal();
-    Tutorial.start(() => newGame());
+    pendingVariant = "regular";
+    startGame("easy", true);
   };
 
   const BOARD_KEY = "shesh-besh-board";
@@ -3222,6 +3293,7 @@
 
   rollBtn.addEventListener("click", playerRoll);
   undoBtn.addEventListener("click", undoChunk);
+  if (hintBtn) hintBtn.addEventListener("click", showHint);
   confirmBtn.addEventListener("click", () => {
     if (Game.phase === "confirm") endPlayerTurn(false);
   });

@@ -590,6 +590,15 @@ body {
 
 .point.src-hl  { filter: brightness(1.3); }
 .point.dest-hl { filter: brightness(1.55) saturate(1.2); }
+/* סימון המהלך שהרמז ממליץ עליו — הבהוב עדין בזהב */
+.point.hint-hl {
+  filter: brightness(1.5) saturate(1.25);
+  animation: hint-pulse 1.1s ease-in-out infinite;
+}
+@keyframes hint-pulse {
+  0%, 100% { filter: brightness(1.35) saturate(1.15); }
+  50%      { filter: brightness(1.85) saturate(1.35); }
+}
 
 /* מספרי נקודות */
 .pnum {
@@ -931,6 +940,13 @@ body {
   border-color: transparent;
   font-weight: 700;
 }
+.pill-btn.hint {
+  color: #ffd98a;
+  border-color: rgba(247, 208, 120, .38);
+  background: rgba(247, 208, 120, .12);
+}
+.pill-btn.hint svg { stroke: #ffd98a; }
+.pill-btn.hint:active { background: rgba(247, 208, 120, .22); }
 
 /* כפתור ההטלה */
 .roll-btn {
@@ -1720,6 +1736,29 @@ body[data-board="lagoon"] {
   75%  { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* סנאקבּר — הודעה קצרה שצפה מלמטה (קריצות הרמזים) */
+#snack {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translate(-50%, 16px);
+  z-index: 60;
+  max-width: 88vw;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: rgba(24, 26, 32, .96);
+  border: 1px solid rgba(247, 208, 120, .35);
+  color: var(--gold-hi);
+  font-weight: 700;
+  font-size: .95rem;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .28s, transform .28s;
+}
+#snack.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ==========================================================================
    עיצוב נאומורפי — רקע אחיד, כרטיסים בצל כפול רך (בהיר מלמעלה, כהה מלמטה),

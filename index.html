@@ -183,6 +183,10 @@
       </div>
     </div>
     <div id="actions">
+      <button id="hint-btn" class="pill-btn hint" hidden aria-label="רמז">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+        רמז
+      </button>
       <button id="undo-btn" class="pill-btn" hidden>
         <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
         בטל
@@ -316,7 +320,7 @@
       </button>
       <button class="lvl-card champion" data-v="champion">
         <span class="lvl-dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span>
-        <span class="lvl-name">מאסטר זלנצר 👑</span>
+        <span class="lvl-name">מאסטר 👑</span>
         <span class="lvl-desc">איכות 95+, כמעט תמיד המהלך הטוב ביותר</span>
       </button>
     </div>
@@ -409,6 +413,8 @@
 <div id="modal-backdrop" hidden>
   <div id="modal"></div>
 </div>
+
+<div id="snack" hidden></div>
 
 <script src="js/rules.js"></script>
 <script src="js/engine.js"></script>
