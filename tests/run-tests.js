@@ -237,7 +237,7 @@ console.log("שש-בש טורקי — הזזה חופשית (5-6):");
   const ms = relocateSingleMoves(s, WHITE);
   assert(ms.every(m => m.to !== 5), "אי אפשר להעביר לנקודה חסומה");
   assert(ms.some(m => m.from === 23 && m.to === 20), "אפשר להעביר קדימה");
-  assert(ms.some(m => m.from === 10 && m.to === 15), "אפשר להעביר גם אחורה");
+  assert(ms.every(m => !(m.from === 10 && m.to === 15)), "אי אפשר להעביר אחורה");
   assert(ms.some(m => m.to === 8), "אפשר לנחות על חייל יריב בודד (הכאה)");
   assert(ms.every(m => m.to !== "off"), "בלי הורדה מהלוח כשלא כל החיילים בבית");
   // הכאה בפועל

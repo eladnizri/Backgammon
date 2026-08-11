@@ -282,7 +282,13 @@ function relocateSingleMoves(s, c) {
   const canBearOff = allInHome(s, c);
   const moves = [];
   const addFrom = from => {
-    for (const to of dests) if (to !== from) moves.push({ from, to });
+    for (const to of dests) {
+      if (to === from) continue;
+      /* בטורקי 6-5: אין תנועה הפוכה — לבן קדימה (נמוך יותר), שחור קדימה (גבוה יותר) */
+      if (c === WHITE && to > from) continue;
+      if (c === BLACK && to < from) continue;
+      moves.push({ from, to });
+    }
     if (canBearOff && from !== "bar") moves.push({ from, to: "off" });
   };
   if (s.bar[c] > 0) addFrom("bar");
