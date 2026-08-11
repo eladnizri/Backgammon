@@ -220,12 +220,13 @@ function nextMoveOptions(turnsResult, prefix) {
 }
 
 /* שרשראות מהלכים של אותו חייל מנקודת מוצא נתונה (מאפשר גרירה מקוצרת
-   של שתי קוביות ויותר בבת אחת). לכל יעד נבחרת השרשרת עם הכי הרבה הכאות,
-   ובשוויון — זו שמשתמשת בסכום הקוביות הקטן ביותר. כך הורדה מהלוח מעדיפה
-   את הקובייה המדויקת (חייל בנקודה 3 יורד עם 3, בנקודה 5 עם 5), והשחקן
-   יכול להוריד בכל סדר שירצה בלי שהמשחק יכפה עליו לבזבז קובייה גדולה. */
+   של שתי קוביות ויותר בבת אחת). מחזיר את כל המהלכים הייחודיים (גם אם
+   מגיעים לאותו יעד דרך סדרי קוביות שונים), כדי שהשחקן יוכל לבחור בסדר
+   שירצה. מסדרים לפי: הכאות (יותר טוב), מספר מהלכים בשרשרת (פחות טוב),
+   סכום קוביות (קטן יותר טוב). */
 function chainOptionsFrom(turnsResult, prefix, from) {
-  const best = new Map(); // destKey -> {dest, moves, hits, dsum}
+  const chains = [];
+  const seen = new Set(); // Deduplicate by move sequence
   for (const q of turnsResult.sequences) {
     if (!movesMatchPrefix(q.moves, prefix)) continue;
     if (q.moves.length <= prefix.length) continue;
@@ -239,16 +240,20 @@ function chainOptionsFrom(turnsResult, prefix, from) {
       pos = m.to;
       const hits = acc.reduce((t, x) => t + (x.hit ? 1 : 0), 0);
       const dsum = acc.reduce((t, x) => t + x.die, 0);
-      const key = String(pos);
-      const cur = best.get(key);
-      const better = !cur || hits > cur.hits ||
-        (hits === cur.hits && acc.length < cur.moves.length) ||
-        (hits === cur.hits && acc.length === cur.moves.length && dsum < cur.dsum);
-      if (better) best.set(key, { dest: pos, moves: acc.slice(), hits, dsum });
+      const key = acc.map(m => m.from + ">" + m.to + "#" + m.die).join(";");
+      if (!seen.has(key)) {
+        seen.add(key);
+        chains.push({ dest: pos, moves: acc.slice(), hits, dsum });
+      }
       if (pos === "off") break;
     }
   }
-  return [...best.values()];
+  chains.sort((a, b) =>
+    b.hits - a.hits ||
+    a.moves.length - b.moves.length ||
+    a.dsum - b.dsum
+  );
+  return chains;
 }
 
 /* ==========================================================================
