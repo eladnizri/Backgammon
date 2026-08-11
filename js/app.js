@@ -2976,6 +2976,7 @@
 
   $("#btn-play").onclick = () => { syncVariantNote(); $("#level-backdrop").hidden = false; };
   $("#btn-stats").onclick = () => showScreen("stats");
+  $("#btn-settings").onclick = showSheet;
 
   $("#level-backdrop").onclick = e => { if (e.target.id === "level-backdrop") $("#level-backdrop").hidden = true; };
   $("#lvl-cards").onclick = e => {
@@ -3132,6 +3133,10 @@
   function showSheet() {
     /* "הצע תיקו" רלוונטי רק במשחק פעיל מול חבר */
     $("#sheet-draw").hidden = !canOfferDraw();
+    /* "משחק חדש" ו"פרוש" רלוונטיים רק כשמשחק פעיל */
+    const inGame = Game.phase !== "idle";
+    $("#sheet-new").hidden = !inGame;
+    $("#sheet-resign").hidden = !inGame;
     $("#sheet-backdrop").hidden = false;
   }
   function hideSheet() { $("#sheet-backdrop").hidden = true; }
