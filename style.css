@@ -86,8 +86,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 22px;
-  padding: 28px 22px;
+  gap: 18px;
+  padding: 24px 22px;
   text-align: center;
 }
 
@@ -175,6 +175,7 @@ body {
 }
 .home-quick .q {
   flex: 1;
+  min-width: 0;          /* רוחב שווה לשלושת הכרטיסים גם עם מילה ארוכה */
   padding: 11px 6px;
   border-radius: 15px;
   background: var(--surface);
