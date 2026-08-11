@@ -69,6 +69,8 @@ class LocalTransport {
     this.ch.postMessage(Object.assign({}, msg, { from: this.id }));
   }
 
+  isOpen() { return !!this.ch; }
+
   close() { if (this.ch) { try { this.ch.close(); } catch (_) {} } this.ch = null; }
 }
 
@@ -145,6 +147,8 @@ class SupabaseTransport {
       setTimeout(() => fail(new Error("החיבור לא נענה בזמן")), 12000);
     });
   }
+
+  isOpen() { return !!this.ws && this.ws.readyState === 1; }
 
   push(topic, event, payload) {
     if (!this.ws || this.ws.readyState !== 1) return;

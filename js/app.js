@@ -2383,11 +2383,41 @@
 
   function netTeardown() {
     if (!Game.net) return;
+    Game.net.closing = true;               // מונע ניסיון חיבור-מחדש בזמן סגירה יזומה
     clearInterval(Game.net.hbTimer);
     clearInterval(Game.net.watchTimer);
+    clearInterval(Game.net.helloTimer);
     try { Game.net.tr.send({ t: "bye" }); } catch (_) {}
     try { Game.net.tr.close(); } catch (_) {}
     Game.net = null;
+  }
+
+  /* חיבור-מחדש לחדר אחרי שהחיבור נפל (יציאה מהאפליקציה מקפיאה את
+     ה-WebSocket והשרת סוגר את הערוץ). פותח ערוץ חדש על אותו חדר,
+     שומר על מצב המשחק, ומכריז נוכחות מחדש כדי שהצד השני יזהה אותנו. */
+  let netReopening = false;
+  async function netReopen() {
+    if (!Game.net || Game.net.closing || netReopening) return;
+    netReopening = true;
+    const room = Game.net.room;
+    try {
+      const tr = makeTransport();
+      tr.onMessage = onNetMessage;
+      tr.onStatus = () => {};
+      await tr.open(room);
+      if (!Game.net || Game.net.closing) { try { tr.close(); } catch (_) {} return; }
+      try { Game.net.tr.close(); } catch (_) {}
+      Game.net.tr = tr;
+      Game.net.lastSeen = Date.now();
+      /* מכריזים נוכחות: אורח שעדיין לא התחיל מבקש שוב welcome; אחרת ping */
+      if (Game.net.role === "guest" && !Game.net.started) netSend({ t: "hello", name: myName() });
+      else netSend({ t: "ping" });
+      $("#net-warn").hidden = true;
+    } catch (_) {
+      /* נשאיר לניסיון הבא (watchTimer / חזרה לפוקוס) */
+    } finally {
+      netReopening = false;
+    }
   }
 
   function netAlive() {
@@ -2404,7 +2434,10 @@
 
     Game.net.hbTimer = setInterval(() => netSend({ t: "ping" }), 3000);
     Game.net.watchTimer = setInterval(() => {
-      if (!Game.net || !Game.net.started) return;
+      if (!Game.net || Game.net.closing) return;
+      /* ריפוי-עצמי: אם הערוץ נפל (למשל אחרי שהאפליקציה הייתה ברקע) — פותחים מחדש */
+      if (Game.net.tr && !Game.net.tr.isOpen()) { netReopen(); return; }
+      if (!Game.net.started) return;
       const gap = Date.now() - Game.net.lastSeen;
       $("#net-warn").hidden = gap < 12000;
     }, 2000);
@@ -2431,6 +2464,7 @@
 
       case "welcome":
         if (Game.net.role !== "guest" || Game.net.started) return;
+        clearInterval(Game.net.helloTimer);   // המארח ענה — מפסיקים להכריז
         Game.net.theirName = m.name || "יריב";
         Game.net.started = true;
         Game.variant = m.variant === "turkish" ? "turkish" : "regular";
@@ -2641,11 +2675,16 @@
     $("#join-status").textContent = "מתחבר…";
     try {
       await netOpen("guest", code);
-      netSend({ t: "hello", name: myName() });
-      /* אם אף אחד לא עונה, כנראה שאין חדר כזה */
-      setTimeout(() => {
-        if (Game.net && !Game.net.started) $("#join-status").textContent = "אין תשובה — בדקו את הקוד";
-      }, 6000);
+      /* חוזרים על ההכרזה עד שהמארח עונה — כך זה עובד גם אם המארח חזר
+         לאפליקציה רק אחרי כמה שניות, ולא רק אם היה מחובר ברגע המדויק */
+      let tries = 0;
+      const announce = () => {
+        if (!Game.net || Game.net.started) { clearInterval(Game.net && Game.net.helloTimer); return; }
+        if (Game.net.tr.isOpen()) netSend({ t: "hello", name: myName() });
+        if (++tries === 6) $("#join-status").textContent = "אין תשובה — בדקו את הקוד, או שהחבר יפתח את החדר מחדש";
+      };
+      announce();
+      Game.net.helloTimer = setInterval(announce, 2500);
     } catch (e) {
       netError($("#join-status"), "החיבור נכשל: " + e.message, joinRoom);
     }
@@ -3204,8 +3243,17 @@
     window.visualViewport.addEventListener("resize", fitBoardSoon);
     window.visualViewport.addEventListener("scroll", fitBoardSoon);
   }
-  /* חזרה לאפליקציה (מהרקע/כרטיסייה אחרת) — מודדים מחדש ליתר ביטחון */
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) fitBoardSoon(); });
+  /* חזרה לאפליקציה (מהרקע/כרטיסייה אחרת) — מודדים מחדש, ואם היינו בחדר
+     מקוון פותחים מיד את החיבור מחדש (הרקע מקפיא את ה-WebSocket) */
+  let netHiddenAt = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { netHiddenAt = Date.now(); return; }
+    fitBoardSoon();
+    if (Game.net && !Game.net.closing) {
+      const wasLong = Date.now() - netHiddenAt > 12000;
+      if (wasLong || !Game.net.tr.isOpen()) netReopen();
+    }
+  });
   window.addEventListener("pageshow", fitBoard);
   /* מדידה חוזרת אחרי שהפריסה והגופנים התייצבו */
   requestAnimationFrame(() => requestAnimationFrame(fitBoard));
