@@ -1,6 +1,6 @@
 /* Service worker — מאפשר לפתוח את המשחק גם בלי אינטרנט.
    כל שינוי בקבצים מחייב העלאת CACHE כדי שהגרסה החדשה תיתפס. */
-const CACHE = "shesh-besh-v6";
+const CACHE = "shesh-besh-v7";
 
 const SHELL = [
   "./",

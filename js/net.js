@@ -170,12 +170,165 @@ class SupabaseTransport {
   }
 }
 
-/* מוצא מוצא חירום: אם Supabase לא נענה אפשר לחזור למצב המקומי בלי
-   לגעת בקוד, כדי שתמיד תהיה דרך לשחק. */
+/* ---------- מימוש PeerJS: חיבור ישיר בין שני המכשירים ---------- */
+
+/* אין כאן שרת משלנו ואין חשבון. שרת התיווך הציבורי של PeerJS רק מצמיד
+   בין שני הצדדים לפי קוד החדר, ומרגע שהחיבור נוצר ההודעות עוברות ישירות
+   ביניהם. המארח נרשם אצל המתווך תחת קוד החדר, והאורח מתחבר אל המזהה הזה. */
+
+const PEER_PREFIX = "sheshbesh-";
+const PEER_TIMEOUT = 15000;
+const PEER_ID_TRIES = 3;     // ניסיונות חוזרים כשהמזהה הישן עוד לא שוחרר
+
+function peerErrorText(type) {
+  switch (type) {
+    case "browser-incompatible": return "הדפדפן לא תומך בחיבור ישיר";
+    case "unavailable-id":       return "קוד החדר עדיין תפוס — פתחו חדר חדש";
+    case "invalid-id":           return "קוד חדר לא תקין";
+    case "ssl-unavailable":
+    case "server-error":
+    case "socket-error":
+    case "socket-closed":
+    case "network":              return "לא הצלחתי להגיע לשרת התיווך";
+    default:                     return "החיבור נכשל";
+  }
+}
+
+class PeerTransport {
+  constructor() {
+    this.id = netId();
+    this.peer = null;
+    this.conn = null;
+    this.role = "host";
+    this.retry = null;
+    this.onMessage = () => {};
+    this.onStatus = () => {};
+  }
+
+  get label() { return "חיבור ישיר (P2P)"; }
+
+  open(room, role) {
+    this.role = role === "guest" ? "guest" : "host";
+    const hostId = PEER_PREFIX + room;
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const stop = () => { clearInterval(this.retry); this.retry = null; };
+      const done = () => { if (!settled) { settled = true; stop(); this.onStatus("open"); resolve(); } };
+      const fail = err => { if (!settled) { settled = true; stop(); reject(err); } };
+
+      if (typeof Peer !== "function") return fail(new Error("ספריית החיבור לא נטענה"));
+
+      let idTries = 0;
+
+      /* אורח: מנסה להתחבר שוב ושוב עד לפקיעת הזמן, כדי שגם מארח
+         שחזר לאפליקציה כמה שניות מאוחר יותר עדיין ייתפס */
+      const tryConnect = () => {
+        if (settled || !this.peer || this.peer.destroyed) return;
+        let conn;
+        try { conn = this.peer.connect(hostId, { reliable: true }); } catch (_) { return; }
+        if (!conn) return;
+        conn.on("open", () => { this.attach(conn); done(); });
+        conn.on("error", () => {});
+      };
+
+      const start = () => {
+        try {
+          this.peer = this.role === "host" ? new Peer(hostId, { debug: 0 }) : new Peer({ debug: 0 });
+        } catch (_) {
+          return fail(new Error("לא ניתן לפתוח חיבור"));
+        }
+
+        if (this.role === "host") {
+          /* המארח מוכן ברגע שנרשם אצל המתווך — עוד לפני שהאורח הגיע */
+          this.peer.on("open", done);
+          this.peer.on("connection", conn => this.attach(conn));
+        } else {
+          this.peer.on("open", () => {
+            tryConnect();
+            this.retry = setInterval(tryConnect, 2000);
+          });
+        }
+
+        this.peer.on("error", err => {
+          const type = err && err.type;
+          /* המארח עוד לא נרשם — ממשיכים לנסות עד לפקיעת הזמן */
+          if (type === "peer-unavailable") return;
+          /* הרישום הקודם של אותו חדר עוד לא שוחרר אצל המתווך */
+          if (type === "unavailable-id" && this.role === "host" && ++idTries < PEER_ID_TRIES) {
+            try { this.peer.destroy(); } catch (_) {}
+            this.peer = null;
+            setTimeout(() => { if (!settled) start(); }, 900);
+            return;
+          }
+          fail(new Error(peerErrorText(type)));
+        });
+
+        /* ניתוק מהמתווך לא מפיל את החיבור הישיר — מנסים להירשם מחדש ברקע */
+        this.peer.on("disconnected", () => {
+          if (this.peer && !this.peer.destroyed) { try { this.peer.reconnect(); } catch (_) {} }
+        });
+      };
+
+      start();
+      setTimeout(() => fail(new Error(this.role === "guest"
+        ? "לא נמצא חדר עם הקוד הזה"
+        : "החיבור לא נענה בזמן")), PEER_TIMEOUT);
+    });
+  }
+
+  attach(conn) {
+    this.conn = conn;
+    conn.on("data", d => {
+      if (!d || d.from === this.id) return;
+      this.onMessage(d);
+    });
+    conn.on("close", () => this.onStatus("closed"));
+    conn.on("error", () => {});
+  }
+
+  isOpen() {
+    if (!this.peer || this.peer.destroyed) return false;
+    /* המארח נחשב פתוח כל עוד הוא רשום אצל המתווך, גם לפני שהאורח הגיע.
+       האורח תלוי בחיבור עצמו — וכך הוא זה שיוזם חיבור-מחדש אם הוא נפל. */
+    if (this.role === "guest") return !!(this.conn && this.conn.open);
+    return true;
+  }
+
+  send(msg) {
+    if (this.conn && this.conn.open) {
+      try { this.conn.send(Object.assign({}, msg, { from: this.id })); } catch (_) {}
+    }
+  }
+
+  close() {
+    clearInterval(this.retry);
+    this.retry = null;
+    if (this.conn) { try { this.conn.close(); } catch (_) {} }
+    if (this.peer) { try { this.peer.destroy(); } catch (_) {} }
+    this.conn = null;
+    this.peer = null;
+  }
+}
+
+/* ---------- בחירת המנוע ----------
+   ברירת המחדל היא PeerJS: עובד מכל מקום בלי חשבון ובלי שרת משלנו.
+   Supabase נשאר זמין למי שמילא NET_CONFIG ומעדיף ערוץ מתווך.
+   מצב מקומי הוא רשת ביטחון שתמיד עובדת בין לשוניות באותו דפדפן. */
 let netForceLocal = false;
+let netEngine = "peer";
 const setForceLocal = v => { netForceLocal = Boolean(v); };
-const netConfigured = () => Boolean(NET_CONFIG.url && NET_CONFIG.key) && !netForceLocal;
+const setEngine = e => { netEngine = e === "supabase" ? "supabase" : "peer"; };
+
+const peerReady = () => typeof Peer === "function";
+const supabaseReady = () => Boolean(NET_CONFIG.url && NET_CONFIG.key);
+
+function netConfigured() {
+  if (netForceLocal) return false;
+  return netEngine === "supabase" ? supabaseReady() : peerReady();
+}
 
 function makeTransport() {
-  return netConfigured() ? new SupabaseTransport() : new LocalTransport();
+  if (!netConfigured()) return new LocalTransport();
+  return netEngine === "supabase" ? new SupabaseTransport() : new PeerTransport();
 }
