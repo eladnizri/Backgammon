@@ -2473,13 +2473,16 @@
     if (!Game.net || Game.net.closing || netReopening) return;
     netReopening = true;
     const room = Game.net.room;
+    const role = Game.net.role;
     try {
+      /* סוגרים קודם: בחיבור ישיר המארח רשום אצל המתווך תחת קוד החדר,
+         והרישום חייב להשתחרר לפני שנרשמים שוב על אותו קוד */
+      try { Game.net.tr.close(); } catch (_) {}
       const tr = makeTransport();
       tr.onMessage = onNetMessage;
       tr.onStatus = () => {};
-      await tr.open(room);
+      await tr.open(room, role);
       if (!Game.net || Game.net.closing) { try { tr.close(); } catch (_) {} return; }
-      try { Game.net.tr.close(); } catch (_) {}
       Game.net.tr = tr;
       Game.net.lastSeen = Date.now();
       /* מכריזים נוכחות: אורח שעדיין לא התחיל מבקש שוב welcome; אחרת ping */
@@ -2503,7 +2506,7 @@
     const tr = makeTransport();
     Game.net = { tr, role, room, lastSeen: Date.now(), started: false };
     tr.onMessage = onNetMessage;
-    await tr.open(room);
+    await tr.open(room, role);
 
     Game.net.hbTimer = setInterval(() => netSend({ t: "ping" }), 3000);
     Game.net.watchTimer = setInterval(() => {
@@ -2765,8 +2768,8 @@
 
   $("#btn-online").onclick = () => {
     $("#lobby-mode-note").textContent = netConfigured()
-      ? "מחובר דרך Supabase — אפשר לשחק מכל מקום"
-      : "מצב מקומי: עובד בין לשוניות באותו דפדפן. להוספת משחק דרך האינטרנט מלאו את NET_CONFIG ב-js/net.js";
+      ? "חיבור ישיר בין המכשירים — אפשר לשחק מכל מקום"
+      : "מצב מקומי: עובד בין לשוניות באותו דפדפן. לחיבור דרך האינטרנט צריך חיבור רשת פעיל";
     lobbyState("choose");
     showScreen("online");
   };
