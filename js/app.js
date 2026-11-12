@@ -1782,6 +1782,7 @@
     const badge = $("#coach-score");
     badge.className = "score-ring " + r.grade.cls;
     badge.textContent = r.score;
+    badge.setAttribute("aria-label", `ציון ${r.score} — ${r.grade.label}`);
     $("#coach-title").textContent = isBest ? "המהלך המומלץ ✓" : "המהלך שבחרת";
     $("#coach-desc").innerHTML = isBest
       ? movesHtml(r.bestMoves)
@@ -2328,6 +2329,7 @@
       badge.hidden = false;
       badge.className = "score-ring " + r.grade.cls;
       badge.textContent = r.score;
+      badge.setAttribute("aria-label", `ציון ${r.score} — ${r.grade.label}`);
       $("#replay-expl").textContent = r.explanation;
       $("#replay-expl").hidden = false;
     } else {
