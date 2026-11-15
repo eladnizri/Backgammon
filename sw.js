@@ -1,6 +1,6 @@
 /* Service worker — מאפשר לפתוח את המשחק גם בלי אינטרנט.
    כל שינוי בקבצים מחייב העלאת CACHE כדי שהגרסה החדשה תיתפס. */
-const CACHE = "shesh-besh-v7";
+const CACHE = "shesh-besh-v8";
 
 const SHELL = [
   "./",
@@ -18,7 +18,13 @@ const SHELL = [
 ];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  /* לא קוראים skipWaiting — ה-SW החדש ימתין עד שהמשתמש יאשר עדכון */
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+});
+
+/* האפליקציה שולחת SKIP_WAITING כשהמשתמש לוחץ על כפתור העדכון */
+self.addEventListener("message", e => {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", e => {

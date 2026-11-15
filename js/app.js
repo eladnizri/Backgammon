@@ -3543,11 +3543,49 @@
   requestAnimationFrame(() => requestAnimationFrame(fitBoard));
   window.addEventListener("load", fitBoard);
 
-  /* ---------- התקנה כאפליקציה ----------
-     נרשם רק ב-http/https; מ-file:// דפדפנים חוסמים service worker. */
+  /* ---------- התקנה כאפליקציה + עדכון אוטומטי ----------
+     נרשם רק ב-http/https; מ-file:// דפדפנים חוסמים service worker.
+     כשה-SW החדש ממתין (waiting) — מציגים כפתור "עדכון זמין".
+     לחיצה עליו שולחת SKIP_WAITING ואז טוענת מחדש את הדף. */
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("sw.js").catch(() => {});
+    window.addEventListener("load", async () => {
+      try {
+        const reg = await navigator.serviceWorker.register("sw.js");
+
+        const updateBtn = $("#update-btn");
+
+        function showUpdateBtn(worker) {
+          if (!updateBtn) return;
+          updateBtn.hidden = false;
+          updateBtn.onclick = () => {
+            worker.postMessage("SKIP_WAITING");
+          };
+        }
+
+        /* SW חדש כבר ממתין (רענון ידני של הדף שלאחר עדכון) */
+        if (reg.waiting) showUpdateBtn(reg.waiting);
+
+        /* SW חדש הותקן במהלך הגלישה */
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener("statechange", () => {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              showUpdateBtn(nw);
+            }
+          });
+        });
+
+        /* לאחר ש-skipWaiting הופעל — ה-SW החדש נכנס לשימוש, טוענים מחדש */
+        let reloading = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!reloading) { reloading = true; location.reload(); }
+        });
+
+        /* בדיקת עדכון כל 30 דקות בזמן שהאפליקציה פתוחה */
+        setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+
+      } catch (_) {}
     });
   }
   window.addEventListener("appinstalled", () => Analytics.track("app_installed"));
