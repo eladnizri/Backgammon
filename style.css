@@ -1146,6 +1146,7 @@ body {
 html[dir="rtl"] .toggle.on i { transform: translateX(-19px); }
 
 .sheet-actions { display: flex; gap: 10px; margin-top: 18px; }
+.app-version { text-align: center; font-size: 11px; color: var(--muted); margin: 10px 0 2px; }
 
 /* ---------- מודאל סיכום ---------- */
 

@@ -1,5 +1,7 @@
 "use strict";
 
+const APP_VERSION = "1.0.8";
+
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
    השחקן הוא תמיד לבן ונע מנקודה 24 אל הבית (נקודות 1–6, ברביע הימני-תחתון).
@@ -3584,6 +3586,14 @@
 
         /* בדיקת עדכון כל 30 דקות בזמן שהאפליקציה פתוחה */
         setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+
+        /* קבלת גרסה מה-SW לאחר הפעלה */
+        navigator.serviceWorker.addEventListener("message", e => {
+          if (e.data && e.data.type === "VERSION") {
+            const lbl = $("#app-version-lbl");
+            if (lbl) lbl.textContent = "גרסה " + e.data.version;
+          }
+        });
 
       } catch (_) {}
     });
