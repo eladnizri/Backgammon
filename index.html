@@ -26,12 +26,12 @@
 <body>
 
 <!-- ===== סמל האפליקציה, מוגדר פעם אחת ומשוכפל דרך <use> ===== -->
-<svg style="display:none" aria-hidden="true">
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+    <linearGradient id="lg-cu" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#d4895a"/><stop offset="100%" stop-color="#8f5020"/></linearGradient>
+    <linearGradient id="lg-iv" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#f2e8d4"/><stop offset="100%" stop-color="#bfac90"/></linearGradient>
+  </defs>
   <symbol id="ico-logo" viewBox="0 0 512 512">
-    <defs>
-      <linearGradient id="lg-cu" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#d4895a"/><stop offset="100%" stop-color="#8f5020"/></linearGradient>
-      <linearGradient id="lg-iv" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#f2e8d4"/><stop offset="100%" stop-color="#bfac90"/></linearGradient>
-    </defs>
     <rect width="512" height="512" rx="110" fill="#120e0a"/>
     <rect x="14" y="14" width="484" height="484" rx="98" fill="none" stroke="#b06030" stroke-opacity=".55" stroke-width="1.5"/>
     <path d="M148 68 L364 68 L256 238 Z" fill="url(#lg-cu)"/>

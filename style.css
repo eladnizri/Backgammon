@@ -86,11 +86,13 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 24px 22px;
+  gap: 14px;
+  padding: 20px 22px;
   text-align: center;
 }
+/* center content when it's short enough to fit — allows scrolling when tall */
+.home-scroll::before { content: ""; flex: 1; min-height: 0; max-height: 40px; }
+.home-scroll::after  { content: ""; flex: 1; min-height: 0; max-height: 20px; }
 
 .home-hero { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .logo-lg {
