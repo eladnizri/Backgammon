@@ -1882,6 +1882,24 @@ body { background: var(--bg-0); }
 .cube-offer b { color: var(--gold); }
 .cube-offer-actions { display: flex; gap: 10px; }
 
+/* אונבורדינג אימון */
+.coach-onboard {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.72);
+  padding: 16px;
+}
+.coach-onboard-card {
+  background: var(--bg-1); border-radius: 16px;
+  padding: 28px 22px 20px; max-width: 340px; width: 100%;
+  text-align: center; color: var(--text);
+}
+.coach-onboard-card h3 { margin: 0 0 10px; font-size: 20px; color: var(--gold); }
+.coach-onboard-card p { margin: 0 0 16px; font-size: 15px; line-height: 1.5; opacity: .88; }
+#cob-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 16px; }
+#cob-dots i { display: block; width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.2); }
+#cob-dots i.on { background: var(--gold); }
+
 /* הלוח — צל חיצוני רך שמתיישב בתוך המשטח, הפנים נשאר חד לחלוטין */
 #board {
   box-shadow:

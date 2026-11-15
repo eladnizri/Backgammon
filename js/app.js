@@ -976,11 +976,7 @@
   }
 
   function aiRollAfterCube() {
-    const g = Game.gen;
-    const dice = [d6(), d6()];
-    if (Game.variant === "turkish") return;
-    const tr = generateTurns(Game.state, -Game.me, dice);
-    playOpponentTurn(dice, aiChooseMoves(tr, dice), g, "המחשב");
+    aiTurn();
   }
 
   if (cubeBtn) cubeBtn.addEventListener("click", playerDouble);
@@ -1460,6 +1456,7 @@
   }
 
   async function aiTurn() {
+    if (aiOfferDouble()) return;
     const g = Game.gen;
     const dice = [d6(), d6()];
 
@@ -2028,8 +2025,8 @@
     hideToast();
     render();
     /* פרישה נספרת כניצחון רגיל, בלי לבדוק את הלוח */
-    const kind = reason === "resign" ? 1 : winKind(Game.state, winColor);
-    const points = kind;      // רגיל 1, מארס 2, מארס טורקי 3
+    const kind = (reason === "resign" || reason === "cube-drop") ? 1 : winKind(Game.state, winColor);
+    const points = kind * Game.cube;  // סוג ניצחון × קוביית הכפלה
     const kindTxt = reason === "resign"
       ? (winColor === Game.me ? `${Game.oppName} פרש מהמשחק` : "פרשת מהמשחק")
       : { 1: "ניצחון רגיל", 2: "מארס — ניצחון כפול", 3: "מארס טורקי — ניצחון משולש" }[kind];
@@ -2081,6 +2078,7 @@
     Game.lastResult = { won, kindTxt, points, sum, online, rec };
     status(won ? "ניצחת!" : `${Game.oppName} ניצח`);
     showGameOverModal();
+    if (CoachOnboard.needed()) setTimeout(() => CoachOnboard.start(), 600);
   }
 
   function showGameOverModal() {
@@ -2292,6 +2290,52 @@
 
   $("#tut-next").onclick = () => Tutorial.next();
   $("#tut-skip").onclick = () => Tutorial.end();
+
+  /* ---------- אונבורדינג אימון ---------- */
+
+  const COACH_STEPS = [
+    { title: "מאמן אישי", body: "המשחק מדרג כל מהלך שלך ומראה לך כמה טוב שיחקת. שים לב לפס הצבעוני שמופיע אחרי כל תור." },
+    { title: "💡 רמזים", body: "נתקעת? לחץ על כפתור הרמז כדי לראות את המהלך המומלץ. המאמן מסביר גם למה זה המהלך הנכון." },
+    { title: "📊 סיכום משחק", body: "בסוף כל משחק תקבל ציון כללי ופירוט של התורות — כך תוכל ללמוד מטעויות ולהשתפר!" },
+  ];
+
+  const CoachOnboard = {
+    i: 0,
+    start() {
+      this.i = 0;
+      const el = $("#coach-onboard");
+      el.hidden = false;
+      $("#cob-dots").innerHTML = COACH_STEPS.map(() => "<i></i>").join("");
+      this.show();
+    },
+    show() {
+      const s = COACH_STEPS[this.i];
+      $("#cob-title").textContent = s.title;
+      $("#cob-body").textContent = s.body;
+      [...$("#cob-dots").children].forEach((d, k) => d.classList.toggle("on", k === this.i));
+      $("#cob-next").textContent = this.i === COACH_STEPS.length - 1 ? "בואו נשחק!" : "הבא";
+      $("#cob-skip").hidden = this.i === COACH_STEPS.length - 1;
+    },
+    next() {
+      if (this.i >= COACH_STEPS.length - 1) return this.end();
+      this.i++;
+      Sfx.place();
+      this.show();
+    },
+    end() {
+      $("#coach-onboard").hidden = true;
+      Profiles.active().stats.coachOnboardDone = true;
+      Profiles.save();
+      Analytics.track("coach_onboard_completed");
+    },
+    needed() {
+      const p = Profiles.active();
+      return p.stats.tutorialDone && !p.stats.coachOnboardDone;
+    },
+  };
+
+  $("#cob-next").onclick = () => CoachOnboard.next();
+  $("#cob-skip").onclick = () => CoachOnboard.end();
 
   /* ---------- שיתוף סיכום כתמונה ----------
      מצייר כרטיס על קנבס ומעביר אותו ל-Web Share. אם השיתוף לא נתמך,
@@ -2815,6 +2859,7 @@
     Game.silentCoach = true;
     Game.level = "medium";              // המנוע עדיין מדרג, רק בלי להציג
     Game.turkishAction = null; Game.naturalDouble = false;
+    Game.cube = 1; Game.cubeOwner = 0; Game.cubeOffered = false;
     if (Game.net) Game.net.drawPending = null;
     Game.state = initialState();
     Game.view = Game.state;
@@ -3526,7 +3571,7 @@
     updateButtons, gameOver, showStatsModal, showScreen, startGame, fitBoard,
     startTimer, stopTimer, resign, requestRematch,
     enterReplay, exitReplay, replayGoto, drawSummaryCard, shareSummary, setBoardTheme,
-    Tutorial, TUT_STEPS, performSwap, showDoubleChooser,
+    Tutorial, TUT_STEPS, CoachOnboard, COACH_STEPS, performSwap, showDoubleChooser,
     offerDraw, drawEnd, showDrawOfferModal,
     openCoach, closeCoach, coachShow,
     setVariant: v => { pendingVariant = v; onlineVariant = v; Game.variant = v; },
