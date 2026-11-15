@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.9";
+const APP_VERSION = "1.0.10";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -2996,7 +2996,7 @@ const APP_VERSION = "1.0.9";
 
   /* ---------- ניווט בין מסכים ---------- */
 
-  const SCREENS = ["welcome", "home", "game", "stats", "online"];
+  const SCREENS = ["welcome", "home", "game", "stats", "online", "about"];
   function showScreen(name) {
     /* שכבות צפות שייכות למסך שממנו יצאנו — אחרת הן נשארות תלויות מעליו */
     hideModal(); hideSheet(); hideProfiles();
@@ -3258,6 +3258,7 @@ const APP_VERSION = "1.0.9";
   $("#btn-play").onclick = () => { syncVariantNote(); $("#level-backdrop").hidden = false; };
   $("#btn-stats").onclick = () => showScreen("stats");
   $("#btn-settings").onclick = showSheet;
+  $("#btn-about").onclick = () => { showScreen("about"); const v = $("#about-version"); if (v) v.textContent = "גרסה " + APP_VERSION; };
 
   $("#level-backdrop").onclick = e => { if (e.target.id === "level-backdrop") $("#level-backdrop").hidden = true; };
   $("#lvl-cards").onclick = e => {

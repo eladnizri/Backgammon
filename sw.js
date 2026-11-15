@@ -1,6 +1,6 @@
 /* Service worker — מאפשר לפתוח את המשחק גם בלי אינטרנט.
    בכל עדכון: מעלים את VERSION ב-1 — זה מה שגורם לדפדפן לזהות גרסה חדשה. */
-const VERSION = "1.0.9";
+const VERSION = "1.0.10";
 const CACHE = "shesh-besh-" + VERSION;
 
 const SHELL = [
@@ -16,6 +16,7 @@ const SHELL = [
   "./icon-192.png",
   "./icon-512.png",
   "./img/lagoon-couple.jpg",
+  "./og-image.png",
 ];
 
 self.addEventListener("install", e => {
