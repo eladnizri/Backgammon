@@ -475,6 +475,9 @@
     toastTimer: null,
     hintCount: 0,      // כמה רמזים נלקחו במשחק הנוכחי (מול המחשב)
     hintMove: null,    // { from, to } — המהלך המומלץ המסומן כעת על הלוח
+    cube: 1,           // ערך קוביית ההכפלה הנוכחי
+    cubeOwner: 0,      // 0=מרכז (שניהם יכולים), WHITE/BLACK=בעלים
+    cubeOffered: false, // האם מוצגת הצעת הכפלה כרגע
   };
 
   const boardEl = $("#board");
@@ -484,6 +487,8 @@
   const confirmBtn = $("#confirm-btn");
   const hintBtn = $("#hint-btn");
   const ratingEl = $("#rating");
+  const cubeBtn = $("#dbl-cube-btn");
+  const cubeOfferEl = $("#cube-offer");
 
   let pieceLayer, diceLayer, pointEls = [], pnumEls = [], borneEls = {}, stripEls = {};
   /* מאגר חיילים קבוע: 15 לכל צבע. lastLoc = המיקום הלוגי בפריים הקודם. */
@@ -880,7 +885,107 @@
       (Game.phase === "playerMove" || Game.phase === "confirm" || Game.phase === "relocate"));
     /* רמז — רק מול המחשב, כשיש לשחקן מהלך רגיל לבחור */
     if (hintBtn) hintBtn.hidden = !(Game.mode === "cpu" && Game.phase === "playerMove");
+    /* קוביית הכפלה — רק מול המחשב, במשחק רגיל, לפני ההטלה, כשיש זכות להכפיל */
+    if (cubeBtn) cubeBtn.hidden = !(
+      Game.mode === "cpu" && Game.variant === "regular" &&
+      Game.phase === "playerRoll" &&
+      (Game.cubeOwner === 0 || Game.cubeOwner === Game.me) &&
+      Game.cube < 64
+    );
+    updateCubeDisplay();
   }
+
+  /* ---------- קוביית הכפלה ---------- */
+
+  function updateCubeDisplay() {
+    const meEl = $("#cube-me"), aiEl = $("#cube-ai");
+    if (!meEl || !aiEl) return;
+    if (Game.cube <= 1 || Game.variant === "turkish" || Game.mode === "online") {
+      meEl.hidden = true; aiEl.hidden = true; return;
+    }
+    const myOwn = Game.cubeOwner === Game.me;
+    const aiOwn = Game.cubeOwner === -Game.me;
+    meEl.hidden = !myOwn;
+    aiEl.hidden = !aiOwn;
+    if (myOwn) meEl.querySelector(".cube-display-val").textContent = Game.cube;
+    if (aiOwn) aiEl.querySelector(".cube-display-val").textContent = Game.cube;
+  }
+
+  function playerDouble() {
+    if (Game.phase !== "playerRoll" || Game.mode !== "cpu" || Game.variant !== "regular") return;
+    if (Game.cubeOwner !== 0 && Game.cubeOwner !== Game.me) return;
+    if (Game.cube >= 64) return;
+
+    const newVal = Game.cube * 2;
+    const decision = shouldDouble(Game.state, -Game.me);
+
+    if (!decision.shouldTake) {
+      status(`הכפלת ל-${newVal} — ${Game.oppName} מסרב ופורש`);
+      Sfx.win();
+      setTimeout(() => gameOver(Game.me, "cube-drop"), 900);
+      return;
+    }
+    Game.cube = newVal;
+    Game.cubeOwner = -Game.me;
+    Sfx.place();
+    status(`הכפלת ל-${newVal} — ${Game.oppName} מקבל`);
+    updateButtons();
+    render();
+  }
+
+  function aiOfferDouble() {
+    if (Game.variant !== "regular" || Game.mode !== "cpu") return false;
+    if (Game.cubeOwner !== 0 && Game.cubeOwner !== -Game.me) return false;
+    if (Game.cube >= 64) return false;
+
+    const decision = shouldDouble(Game.state, -Game.me);
+    if (!decision.shouldDouble) return false;
+
+    const newVal = Game.cube * 2;
+    Game.cubeOffered = true;
+    Game.phase = "cubeOffer";
+    updateButtons();
+    cubeOfferEl.hidden = false;
+    $("#cube-offer-val").textContent = newVal;
+    $("#cube-offer-text").innerHTML = `${Game.oppName} מציע להכפיל ל-<b>${newVal}</b>`;
+    return true;
+  }
+
+  function cubeAccept() {
+    if (!Game.cubeOffered) return;
+    Game.cube *= 2;
+    Game.cubeOwner = Game.me;
+    Game.cubeOffered = false;
+    cubeOfferEl.hidden = true;
+    Sfx.place();
+    status(`קיבלת — ההכפלה עומדת על ×${Game.cube}`);
+    Game.phase = "ai";
+    updateButtons();
+    render();
+    const g = Game.gen;
+    setTimeout(() => { if (!stale(g)) aiRollAfterCube(); }, T.handoff);
+  }
+
+  function cubeDrop() {
+    if (!Game.cubeOffered) return;
+    Game.cubeOffered = false;
+    cubeOfferEl.hidden = true;
+    status(`סירבת להכפלה — ${Game.oppName} ניצח`);
+    Sfx.lose();
+    setTimeout(() => gameOver(-Game.me, "cube-drop"), 600);
+  }
+
+  function aiRollAfterCube() {
+    const g = Game.gen;
+    const dice = [d6(), d6()];
+    if (Game.variant === "turkish") return;
+    const tr = generateTurns(Game.state, -Game.me, dice);
+    playOpponentTurn(dice, aiChooseMoves(tr, dice), g, "המחשב");
+  }
+
+  if (cubeBtn) cubeBtn.addEventListener("click", playerDouble);
+  $("#cube-take").onclick = cubeAccept;
+  $("#cube-drop").onclick = cubeDrop;
 
   /* ---------- זרימת המשחק ---------- */
 
@@ -893,6 +998,7 @@
     Game.coach = null; Game.lastCoach = null;
     Game.aiScores = [];
     Game.hintCount = 0; Game.hintMove = null;
+    Game.cube = 1; Game.cubeOwner = 0; Game.cubeOffered = false;
     Game.turnNumber = 0;
     Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
     Game.prefix = []; Game.chunks = [];
@@ -1754,6 +1860,7 @@
     render();
 
     Game.hintCount++;
+    Analytics.track("hint_used");
     hintNudge(Game.hintCount);
   }
 
@@ -1794,6 +1901,7 @@
   function openCoach() {
     const r = Game.lastCoach;
     if (!r || Game.mode !== "cpu" || Game.phase === "coach") return;
+    Analytics.track("coach_opened");
     Game.gen++;                       // עוצר תור מחשב ממתין או רץ
     stopTimer();
     clearTimeout(Game.rollTimer);
@@ -2175,6 +2283,7 @@
       window.removeEventListener("resize", this.reposition);
       Profiles.active().stats.tutorialDone = true;
       Profiles.save();
+      Analytics.track("tutorial_completed");
       const done = this.onDone;
       this.onDone = null;
       if (done) done();
@@ -2294,6 +2403,7 @@
 
   async function shareSummary() {
     if (!Game.lastResult) return;
+    Analytics.track("share_used");
     let blob;
     try {
       const cv = drawSummaryCard();
@@ -2325,6 +2435,7 @@
 
   function enterReplay() {
     if (!Game.log.length) return;
+    Analytics.track("replay_viewed");
     hideModal();
     Game.replay = { i: 0, playing: false, timer: null };
     Game.phase = "replay";
@@ -2696,6 +2807,7 @@
   }
 
   function startOnlineGame(myColor, first) {
+    Analytics.track("online_game", { variant: Game.variant });
     Game.gen++;
     clearTimeout(Game.rollTimer);
     Game.mode = "online";
@@ -3294,6 +3406,7 @@
   function setBoardTheme(v) {
     document.body.dataset.board = v;
     try { localStorage.setItem(BOARD_KEY, v); } catch (_) {}
+    Analytics.track("theme_changed", { theme: v });
     [...$("#board-seg").children].forEach(c => c.classList.toggle("on", c.dataset.v === v));
   }
   $("#board-seg").onclick = e => {
@@ -3392,6 +3505,7 @@
       navigator.serviceWorker.register("sw.js").catch(() => {});
     });
   }
+  window.addEventListener("appinstalled", () => Analytics.track("app_installed"));
 
   /* ---------- התחלה ---------- */
   buildBoard();
@@ -3408,7 +3522,7 @@
   }
 
   window.__bg = {
-    Game, GEO, Stats, Profiles, Sfx, render, newGame, playerRoll, aiTurn, endPlayerTurn,
+    Game, GEO, Stats, Profiles, Analytics, Sfx, render, newGame, playerRoll, aiTurn, endPlayerTurn,
     updateButtons, gameOver, showStatsModal, showScreen, startGame, fitBoard,
     startTimer, stopTimer, resign, requestRematch,
     enterReplay, exitReplay, replayGoto, drawSummaryCard, shareSummary, setBoardTheme,
