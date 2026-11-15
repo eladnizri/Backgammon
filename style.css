@@ -82,31 +82,29 @@ body {
 .home-scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 20px 22px;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 22px 16px;
   text-align: center;
 }
-/* center content when it's short enough to fit — allows scrolling when tall */
-.home-scroll::before { content: ""; flex: 1; min-height: 0; max-height: 40px; }
-.home-scroll::after  { content: ""; flex: 1; min-height: 0; max-height: 20px; }
 
-.home-hero { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.home-hero { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .logo-lg {
-  width: clamp(88px, 25vmin, 124px);
+  width: clamp(68px, 18vmin, 92px);
   aspect-ratio: 1;
-  filter: drop-shadow(0 14px 30px rgba(192, 120, 64, .28));
+  filter: drop-shadow(0 10px 24px rgba(192, 120, 64, .28));
 }
 .home-title {
-  margin: 4px 0 0;
-  font-size: clamp(2rem, 8vmin, 2.7rem);
+  margin: 2px 0 0;
+  font-size: clamp(1.7rem, 7vmin, 2.3rem);
   font-weight: 800;
   letter-spacing: -.01em;
 }
-.home-sub { margin: 0; font-size: .88rem; color: var(--text-dim); }
+.home-sub { margin: 0; font-size: .82rem; color: var(--text-dim); }
 
 /* צ'יפ הפרופיל הפעיל */
 .who-chip {
@@ -187,16 +185,18 @@ body {
 .home-quick .q b { display: block; font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .home-quick .q span { font-size: .6rem; letter-spacing: .1em; color: var(--text-dim); }
 
-.home-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 380px; }
+.home-actions { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 380px; }
+.home-btn-row { display: flex; gap: 8px; width: 100%; }
+.home-btn-row .home-btn { flex: 1; justify-content: center; }
 .home-btn {
   font: inherit;
-  font-size: 1rem;
+  font-size: .95rem;
   font-weight: 700;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 17px;
-  padding: 16px 20px;
+  padding: 13px 18px;
   display: flex;
   align-items: center;
   justify-content: center;
