@@ -69,6 +69,36 @@
     avgTurns(s) { s = s || this.d; return s.games ? Math.round(s.turns / s.games) : 0; },
   };
 
+  /* ---------- אנליטיקס ----------
+     מעקב מקומי אחרי שימוש באפליקציה — שומר ב-localStorage בלבד, בלי שרת חיצוני */
+  const Analytics = {
+    KEY: "shesh-besh-analytics-v1",
+    d: null,
+    init() {
+      try { this.d = JSON.parse(localStorage.getItem(this.KEY)) || this.fresh(); }
+      catch (_) { this.d = this.fresh(); }
+    },
+    fresh() {
+      return { firstSeen: Date.now(), lastSeen: Date.now(), sessions: 0, events: [], features: {} };
+    },
+    track(name, data) {
+      if (!this.d) this.init();
+      this.d.lastSeen = Date.now();
+      this.d.events.push({ t: Date.now(), n: name, d: data || null });
+      if (this.d.events.length > 500) this.d.events = this.d.events.slice(-500);
+      this.d.features[name] = (this.d.features[name] || 0) + 1;
+      this.save();
+    },
+    save() { try { localStorage.setItem(this.KEY, JSON.stringify(this.d)); } catch (_) {} },
+    session() {
+      if (!this.d) this.init();
+      this.d.sessions++;
+      this.d.lastSeen = Date.now();
+      this.save();
+    },
+  };
+  Analytics.session();
+
   /* ---------- פרופילים ----------
      כל שחקן על המכשיר מקבל שם, סמל וסטטיסטיקה משלו. השם גם נשלח
      ליריב במשחק מקוון כדי שכל צד יראה מול מי הוא משחק. */
@@ -872,6 +902,7 @@
     const cpuStarts = opts.rematch && Game.mode === "cpu" && Game.lastResult && !Game.lastResult.won;
     Game.phase = cpuStarts ? "ai" : "playerRoll";
     Game.startedAt = Date.now();
+    Analytics.track("game_start", { level: Game.level, variant: Game.variant, mode: Game.mode });
     stopTimer();
     clearTimeout(Game.rollTimer);
     hideToast(); hideModal(); hideSheet();
@@ -1899,6 +1930,7 @@
     /* רישום התוצאה לסטטיסטיקה המצטברת. הפילוח לפי רמת קושי נוגע רק
        למשחקים מול המחשב; משחקים מול חבר נספרים בנפרד. */
     const won = winColor === Game.me;
+    Analytics.track("game_end", { won, level: Game.level, kind, variant: Game.variant, mode: Game.mode, turns: Game.log.length, avgScore: sum.count ? sum.avg : null });
     const online = Game.mode === "online";
     const lvl = online ? { g: 0, w: 0 }
       : (Stats.d.byLevel[Game.level] || (Stats.d.byLevel[Game.level] = { g: 0, w: 0 }));
@@ -2049,7 +2081,19 @@
     },
     {
       title: "המאמן שלך",
-      body: "בסוף כל תור תקבל ציון מ-0 עד 100 והסבר קצר מה היה עדיף. זה לא משפיע על המשחק — רק עוזר להשתפר.",
+      body: "באפליקציה הזאת יש לך מאמן אישי שעוזר לך להשתפר. בואו נכיר אותו.",
+    },
+    {
+      title: "ציון לכל מהלך",
+      body: "אחרי כל תור תקבל ציון מ-0 עד 100: ירוק = מצוין, כתום = סביר, אדום = טעות. ככה תדע מה לשפר.",
+    },
+    {
+      title: "שידור חוזר",
+      body: "הקש על הציון כדי לראות את המהלך המומלץ בהנפשה על הלוח. ככה תבין למה הוא עדיף על מה שבחרת.",
+    },
+    {
+      title: "רמז בזמן אמת",
+      body: "לחץ על 💡 בתורך כדי לראות את המהלך הטוב ביותר. אין הגבלה — השתמש כמה שצריך כדי ללמוד.",
     },
     {
       title: "זהו, אפשר להתחיל",
@@ -3356,6 +3400,12 @@
   Game.view = Game.state;
   render();
   showScreen(Profiles.isNew ? "welcome" : "home");
+
+  if (!Profiles.isNew && !Profiles.active().stats.coachTipSeen && Profiles.active().stats.games > 0) {
+    Profiles.active().stats.coachTipSeen = true;
+    Profiles.save();
+    setTimeout(() => snack("חדש: הקש על ציון המהלך כדי לראות שידור חוזר של המהלך המומלץ 🎬"), 1500);
+  }
 
   window.__bg = {
     Game, GEO, Stats, Profiles, Sfx, render, newGame, playerRoll, aiTurn, endPlayerTurn,

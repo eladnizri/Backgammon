@@ -426,3 +426,11 @@ function summarizeRatings(ratings) {
     .filter(r => r.score < 70);
   return { count: rated.length, avg, grade, dist, worst };
 }
+
+/* ==========================================================================
+   קוביית הכפלה — החלטת AI: האם להכפיל, והאם לקבל הכפלה
+   ========================================================================== */
+function shouldDouble(state, color) {
+  const ev = evaluate(state, color);
+  return { shouldDouble: ev > 0.12, shouldTake: ev > -0.35 };
+}
