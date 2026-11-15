@@ -3,10 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0a0d11">
+<meta name="theme-color" content="#1e1610">
 <title>שש-בש — מאמן אישי</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%23121820'/%3E%3Cpath d='M11 10h10l-5 18z' fill='%235c6773'/%3E%3Cpath d='M27 38h10l-5-18z' fill='%23e3bd77'/%3E%3Ccircle cx='32' cy='14' r='5' fill='%23f7f3ea'/%3E%3Ccircle cx='16' cy='34' r='5' fill='%232b333d'/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='13' fill='%23121820'/%3E%3Cpath d='M11 10h10l-5 18z' fill='%235c6773'/%3E%3Cpath d='M27 38h10l-5-18z' fill='%23e3bd77'/%3E%3Ccircle cx='32' cy='14' r='5' fill='%23f7f3ea'/%3E%3Ccircle cx='16' cy='34' r='5' fill='%232b333d'/%3E%3C/svg%3E">
+<meta name="description" content="משחק השש-בש הטוב ביותר — עם מאמן אישי שמדרג כל מהלך. שחקו נגד המחשב או מול חבר בזמן אמת.">
+<meta property="og:title" content="שש-בש — מאמן אישי">
+<meta property="og:description" content="משחק השש-בש הטוב ביותר — עם מאמן אישי שמדרג כל מהלך. שחקו עכשיו בחינם.">
+<meta property="og:image" content="og-image.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="שש-בש — מאמן אישי">
+<meta name="twitter:description" content="משחק השש-בש הטוב ביותר — עם מאמן אישי שמדרג כל מהלך.">
+<meta name="twitter:image" content="og-image.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -18,13 +27,18 @@
 
 <!-- ===== סמל האפליקציה, מוגדר פעם אחת ומשוכפל דרך <use> ===== -->
 <svg style="display:none" aria-hidden="true">
-  <symbol id="ico-logo" viewBox="0 0 48 48">
-    <rect x="1" y="1" width="46" height="46" rx="13" fill="#121820"/>
-    <rect x="1" y="1" width="46" height="46" rx="13" fill="none" stroke="#e3bd77" stroke-opacity=".5" stroke-width="1.5"/>
-    <path d="M10 9h11l-5.5 19z" fill="#5c6773"/>
-    <path d="M27 39h11l-5.5-19z" fill="#e3bd77"/>
-    <circle cx="32.5" cy="13.5" r="5.2" fill="#f7f3ea"/>
-    <circle cx="15.5" cy="34.5" r="5.2" fill="#2b333d" stroke="#7c8898" stroke-width="1.1"/>
+  <symbol id="ico-logo" viewBox="0 0 512 512">
+    <defs>
+      <linearGradient id="lg-cu" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#d4895a"/><stop offset="100%" stop-color="#8f5020"/></linearGradient>
+      <linearGradient id="lg-iv" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#f2e8d4"/><stop offset="100%" stop-color="#bfac90"/></linearGradient>
+    </defs>
+    <rect width="512" height="512" rx="110" fill="#120e0a"/>
+    <rect x="14" y="14" width="484" height="484" rx="98" fill="none" stroke="#b06030" stroke-opacity=".55" stroke-width="1.5"/>
+    <path d="M148 68 L364 68 L256 238 Z" fill="url(#lg-cu)"/>
+    <path d="M148 444 L364 444 L256 274 Z" fill="url(#lg-iv)"/>
+    <circle cx="256" cy="256" r="22" fill="#120e0a"/>
+    <circle cx="256" cy="256" r="16" stroke="#c07840" stroke-width="2.5" fill="none"/>
+    <circle cx="256" cy="256" r="7" fill="#c07840"/>
   </symbol>
 </svg>
 
@@ -84,6 +98,10 @@
       <button class="home-btn" id="btn-settings">
         <svg viewBox="0 0 24 24" class="stroke"><circle cx="12" cy="12" r="2.5"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
         הגדרות
+      </button>
+      <button class="home-btn" id="btn-about">
+        <svg viewBox="0 0 24 24" class="stroke"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h0"/></svg>
+        אודות
       </button>
     </div>
   </div>
@@ -237,6 +255,52 @@
 </div>
 
 <!-- ========================= לובי משחק מול חבר ========================= -->
+<!-- ============================== אודות ============================== -->
+<div id="screen-about" class="screen">
+  <header class="sub-top">
+    <button class="ghost-btn back" data-home aria-label="חזרה"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="title">אודות</div>
+    <span class="ghost-spacer"></span>
+  </header>
+
+  <div class="sub-scroll">
+    <div class="about-hero">
+      <svg class="logo-lg"><use href="#ico-logo"/></svg>
+      <h2 class="about-name">שש-בש</h2>
+      <p class="about-tagline">מאמן אישי שמדרג כל מהלך</p>
+      <span class="about-version" id="about-version"></span>
+    </div>
+
+    <div class="about-section">
+      <h3>מה יש פה?</h3>
+      <ul class="about-list">
+        <li><b>שש-בש רגיל</b> — חוקים קלאסיים עם קוביית הכפלה</li>
+        <li><b>שש-בש טורקי</b> — חוקים מיוחדים לזריקות 1-2, 3-4, 5-6</li>
+        <li><b>מאמן אישי</b> — ציון לכל מהלך, שידור חוזר, רמזים בזמן אמת</li>
+        <li><b>שחק מול חבר</b> — חיבור P2P ישיר, בלי הרשמה</li>
+        <li><b>4 רמות קושי</b> — מקלה ועד מאסטר</li>
+        <li><b>6 ערכות לוח</b> — לילה, עץ, לבד, שנהב, אלבטרוס, לגונה</li>
+      </ul>
+    </div>
+
+    <div class="about-section">
+      <h3>קרדיטים</h3>
+      <p>פותח ע"י <b>אלעד ניזרי</b></p>
+      <p>מנוע המשחק, המאמן ו-AI נבנו מאפס.</p>
+      <p>עיצוב: Ebony & Copper</p>
+    </div>
+
+    <div class="about-section">
+      <h3>פרטיות</h3>
+      <p>האפליקציה לא שולחת מידע לשום שרת. כל הנתונים — סטטיסטיקות, הגדרות ופרופילים — נשמרים רק במכשיר שלך.</p>
+    </div>
+
+    <div class="about-section about-footer">
+      <p>נבנה עם ❤️ לקהילת שחקני השש-בש</p>
+    </div>
+  </div>
+</div>
+
 <div id="screen-online" class="screen">
   <header class="sub-top">
     <button class="ghost-btn back" data-home aria-label="חזרה"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>

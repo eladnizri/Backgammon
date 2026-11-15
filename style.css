@@ -346,6 +346,21 @@ body {
 .dots-wait i:nth-child(3) { animation-delay: .36s; }
 @keyframes dotpulse { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
 
+/* ---------- אודות ---------- */
+.about-hero { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 0 20px; }
+.about-hero .logo-lg { width: 80px; height: 80px; filter: drop-shadow(0 8px 24px rgba(192,120,64,.3)); }
+.about-name { font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em; }
+.about-tagline { font-size: .88rem; color: var(--text-dim); }
+.about-version { font-size: .72rem; color: var(--text-dim); opacity: .7; margin-top: 2px; }
+.about-section { padding: 14px 0; border-top: 1px solid var(--line); }
+.about-section h3 { font-size: .92rem; font-weight: 600; margin-bottom: 8px; color: var(--gold-hi); }
+.about-section p { font-size: .84rem; color: var(--text-dim); line-height: 1.6; margin: 4px 0; }
+.about-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.about-list li { font-size: .84rem; color: var(--text-dim); line-height: 1.55; padding-right: 12px; position: relative; }
+.about-list li::before { content: ""; position: absolute; right: 0; top: 8px; width: 4px; height: 4px; border-radius: 50%; background: var(--gold); }
+.about-footer { text-align: center; border-top: none; padding: 24px 0 12px; }
+.about-footer p { color: var(--text-dim); font-size: .8rem; }
+
 /* התראת ניתוק בתוך מסך המשחק */
 #net-warn {
   flex: none;
