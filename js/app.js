@@ -1,5 +1,7 @@
 "use strict";
 
+const APP_VERSION = "1.0.9";
+
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
    השחקן הוא תמיד לבן ונע מנקודה 24 אל הבית (נקודות 1–6, ברביע הימני-תחתון).
@@ -68,6 +70,36 @@
     avgScore(s) { s = s || this.d; return s.rated ? Math.round(s.scoreSum / s.rated) : null; },
     avgTurns(s) { s = s || this.d; return s.games ? Math.round(s.turns / s.games) : 0; },
   };
+
+  /* ---------- אנליטיקס ----------
+     מעקב מקומי אחרי שימוש באפליקציה — שומר ב-localStorage בלבד, בלי שרת חיצוני */
+  const Analytics = {
+    KEY: "shesh-besh-analytics-v1",
+    d: null,
+    init() {
+      try { this.d = JSON.parse(localStorage.getItem(this.KEY)) || this.fresh(); }
+      catch (_) { this.d = this.fresh(); }
+    },
+    fresh() {
+      return { firstSeen: Date.now(), lastSeen: Date.now(), sessions: 0, events: [], features: {} };
+    },
+    track(name, data) {
+      if (!this.d) this.init();
+      this.d.lastSeen = Date.now();
+      this.d.events.push({ t: Date.now(), n: name, d: data || null });
+      if (this.d.events.length > 500) this.d.events = this.d.events.slice(-500);
+      this.d.features[name] = (this.d.features[name] || 0) + 1;
+      this.save();
+    },
+    save() { try { localStorage.setItem(this.KEY, JSON.stringify(this.d)); } catch (_) {} },
+    session() {
+      if (!this.d) this.init();
+      this.d.sessions++;
+      this.d.lastSeen = Date.now();
+      this.save();
+    },
+  };
+  Analytics.session();
 
   /* ---------- פרופילים ----------
      כל שחקן על המכשיר מקבל שם, סמל וסטטיסטיקה משלו. השם גם נשלח
@@ -445,6 +477,9 @@
     toastTimer: null,
     hintCount: 0,      // כמה רמזים נלקחו במשחק הנוכחי (מול המחשב)
     hintMove: null,    // { from, to } — המהלך המומלץ המסומן כעת על הלוח
+    cube: 1,           // ערך קוביית ההכפלה הנוכחי
+    cubeOwner: 0,      // 0=מרכז (שניהם יכולים), WHITE/BLACK=בעלים
+    cubeOffered: false, // האם מוצגת הצעת הכפלה כרגע
   };
 
   const boardEl = $("#board");
@@ -454,6 +489,8 @@
   const confirmBtn = $("#confirm-btn");
   const hintBtn = $("#hint-btn");
   const ratingEl = $("#rating");
+  const cubeBtn = $("#dbl-cube-btn");
+  const cubeOfferEl = $("#cube-offer");
 
   let pieceLayer, diceLayer, pointEls = [], pnumEls = [], borneEls = {}, stripEls = {};
   /* מאגר חיילים קבוע: 15 לכל צבע. lastLoc = המיקום הלוגי בפריים הקודם. */
@@ -850,7 +887,103 @@
       (Game.phase === "playerMove" || Game.phase === "confirm" || Game.phase === "relocate"));
     /* רמז — רק מול המחשב, כשיש לשחקן מהלך רגיל לבחור */
     if (hintBtn) hintBtn.hidden = !(Game.mode === "cpu" && Game.phase === "playerMove");
+    /* קוביית הכפלה — רק מול המחשב, במשחק רגיל, לפני ההטלה, כשיש זכות להכפיל */
+    if (cubeBtn) cubeBtn.hidden = !(
+      Game.mode === "cpu" && Game.variant === "regular" &&
+      Game.phase === "playerRoll" &&
+      (Game.cubeOwner === 0 || Game.cubeOwner === Game.me) &&
+      Game.cube < 64
+    );
+    updateCubeDisplay();
   }
+
+  /* ---------- קוביית הכפלה ---------- */
+
+  function updateCubeDisplay() {
+    const meEl = $("#cube-me"), aiEl = $("#cube-ai");
+    if (!meEl || !aiEl) return;
+    if (Game.cube <= 1 || Game.variant === "turkish" || Game.mode === "online") {
+      meEl.hidden = true; aiEl.hidden = true; return;
+    }
+    const myOwn = Game.cubeOwner === Game.me;
+    const aiOwn = Game.cubeOwner === -Game.me;
+    meEl.hidden = !myOwn;
+    aiEl.hidden = !aiOwn;
+    if (myOwn) meEl.querySelector(".cube-display-val").textContent = Game.cube;
+    if (aiOwn) aiEl.querySelector(".cube-display-val").textContent = Game.cube;
+  }
+
+  function playerDouble() {
+    if (Game.phase !== "playerRoll" || Game.mode !== "cpu" || Game.variant !== "regular") return;
+    if (Game.cubeOwner !== 0 && Game.cubeOwner !== Game.me) return;
+    if (Game.cube >= 64) return;
+
+    const newVal = Game.cube * 2;
+    const decision = shouldDouble(Game.state, -Game.me);
+
+    if (!decision.shouldTake) {
+      status(`הכפלת ל-${newVal} — ${Game.oppName} מסרב ופורש`);
+      Sfx.win();
+      setTimeout(() => gameOver(Game.me, "cube-drop"), 900);
+      return;
+    }
+    Game.cube = newVal;
+    Game.cubeOwner = -Game.me;
+    Sfx.place();
+    status(`הכפלת ל-${newVal} — ${Game.oppName} מקבל`);
+    updateButtons();
+    render();
+  }
+
+  function aiOfferDouble() {
+    if (Game.variant !== "regular" || Game.mode !== "cpu") return false;
+    if (Game.cubeOwner !== 0 && Game.cubeOwner !== -Game.me) return false;
+    if (Game.cube >= 64) return false;
+
+    const decision = shouldDouble(Game.state, -Game.me);
+    if (!decision.shouldDouble) return false;
+
+    const newVal = Game.cube * 2;
+    Game.cubeOffered = true;
+    Game.phase = "cubeOffer";
+    updateButtons();
+    cubeOfferEl.hidden = false;
+    $("#cube-offer-val").textContent = newVal;
+    $("#cube-offer-text").innerHTML = `${Game.oppName} מציע להכפיל ל-<b>${newVal}</b>`;
+    return true;
+  }
+
+  function cubeAccept() {
+    if (!Game.cubeOffered) return;
+    Game.cube *= 2;
+    Game.cubeOwner = Game.me;
+    Game.cubeOffered = false;
+    cubeOfferEl.hidden = true;
+    Sfx.place();
+    status(`קיבלת — ההכפלה עומדת על ×${Game.cube}`);
+    Game.phase = "ai";
+    updateButtons();
+    render();
+    const g = Game.gen;
+    setTimeout(() => { if (!stale(g)) aiRollAfterCube(); }, T.handoff);
+  }
+
+  function cubeDrop() {
+    if (!Game.cubeOffered) return;
+    Game.cubeOffered = false;
+    cubeOfferEl.hidden = true;
+    status(`סירבת להכפלה — ${Game.oppName} ניצח`);
+    Sfx.lose();
+    setTimeout(() => gameOver(-Game.me, "cube-drop"), 600);
+  }
+
+  function aiRollAfterCube() {
+    aiTurn();
+  }
+
+  if (cubeBtn) cubeBtn.addEventListener("click", playerDouble);
+  $("#cube-take").onclick = cubeAccept;
+  $("#cube-drop").onclick = cubeDrop;
 
   /* ---------- זרימת המשחק ---------- */
 
@@ -863,6 +996,7 @@
     Game.coach = null; Game.lastCoach = null;
     Game.aiScores = [];
     Game.hintCount = 0; Game.hintMove = null;
+    Game.cube = 1; Game.cubeOwner = 0; Game.cubeOffered = false;
     Game.turnNumber = 0;
     Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
     Game.prefix = []; Game.chunks = [];
@@ -872,6 +1006,7 @@
     const cpuStarts = opts.rematch && Game.mode === "cpu" && Game.lastResult && !Game.lastResult.won;
     Game.phase = cpuStarts ? "ai" : "playerRoll";
     Game.startedAt = Date.now();
+    Analytics.track("game_start", { level: Game.level, variant: Game.variant, mode: Game.mode });
     stopTimer();
     clearTimeout(Game.rollTimer);
     hideToast(); hideModal(); hideSheet();
@@ -1323,6 +1458,7 @@
   }
 
   async function aiTurn() {
+    if (aiOfferDouble()) return;
     const g = Game.gen;
     const dice = [d6(), d6()];
 
@@ -1723,6 +1859,7 @@
     render();
 
     Game.hintCount++;
+    Analytics.track("hint_used");
     hintNudge(Game.hintCount);
   }
 
@@ -1763,6 +1900,7 @@
   function openCoach() {
     const r = Game.lastCoach;
     if (!r || Game.mode !== "cpu" || Game.phase === "coach") return;
+    Analytics.track("coach_opened");
     Game.gen++;                       // עוצר תור מחשב ממתין או רץ
     stopTimer();
     clearTimeout(Game.rollTimer);
@@ -1889,8 +2027,8 @@
     hideToast();
     render();
     /* פרישה נספרת כניצחון רגיל, בלי לבדוק את הלוח */
-    const kind = reason === "resign" ? 1 : winKind(Game.state, winColor);
-    const points = kind;      // רגיל 1, מארס 2, מארס טורקי 3
+    const kind = (reason === "resign" || reason === "cube-drop") ? 1 : winKind(Game.state, winColor);
+    const points = kind * Game.cube;  // סוג ניצחון × קוביית הכפלה
     const kindTxt = reason === "resign"
       ? (winColor === Game.me ? `${Game.oppName} פרש מהמשחק` : "פרשת מהמשחק")
       : { 1: "ניצחון רגיל", 2: "מארס — ניצחון כפול", 3: "מארס טורקי — ניצחון משולש" }[kind];
@@ -1899,6 +2037,7 @@
     /* רישום התוצאה לסטטיסטיקה המצטברת. הפילוח לפי רמת קושי נוגע רק
        למשחקים מול המחשב; משחקים מול חבר נספרים בנפרד. */
     const won = winColor === Game.me;
+    Analytics.track("game_end", { won, level: Game.level, kind, variant: Game.variant, mode: Game.mode, turns: Game.log.length, avgScore: sum.count ? sum.avg : null });
     const online = Game.mode === "online";
     const lvl = online ? { g: 0, w: 0 }
       : (Stats.d.byLevel[Game.level] || (Stats.d.byLevel[Game.level] = { g: 0, w: 0 }));
@@ -1941,6 +2080,7 @@
     Game.lastResult = { won, kindTxt, points, sum, online, rec };
     status(won ? "ניצחת!" : `${Game.oppName} ניצח`);
     showGameOverModal();
+    if (CoachOnboard.needed()) setTimeout(() => CoachOnboard.start(), 600);
   }
 
   function showGameOverModal() {
@@ -2049,7 +2189,19 @@
     },
     {
       title: "המאמן שלך",
-      body: "בסוף כל תור תקבל ציון מ-0 עד 100 והסבר קצר מה היה עדיף. זה לא משפיע על המשחק — רק עוזר להשתפר.",
+      body: "באפליקציה הזאת יש לך מאמן אישי שעוזר לך להשתפר. בואו נכיר אותו.",
+    },
+    {
+      title: "ציון לכל מהלך",
+      body: "אחרי כל תור תקבל ציון מ-0 עד 100: ירוק = מצוין, כתום = סביר, אדום = טעות. ככה תדע מה לשפר.",
+    },
+    {
+      title: "שידור חוזר",
+      body: "הקש על הציון כדי לראות את המהלך המומלץ בהנפשה על הלוח. ככה תבין למה הוא עדיף על מה שבחרת.",
+    },
+    {
+      title: "רמז בזמן אמת",
+      body: "לחץ על 💡 בתורך כדי לראות את המהלך הטוב ביותר. אין הגבלה — השתמש כמה שצריך כדי ללמוד.",
     },
     {
       title: "זהו, אפשר להתחיל",
@@ -2131,6 +2283,7 @@
       window.removeEventListener("resize", this.reposition);
       Profiles.active().stats.tutorialDone = true;
       Profiles.save();
+      Analytics.track("tutorial_completed");
       const done = this.onDone;
       this.onDone = null;
       if (done) done();
@@ -2139,6 +2292,52 @@
 
   $("#tut-next").onclick = () => Tutorial.next();
   $("#tut-skip").onclick = () => Tutorial.end();
+
+  /* ---------- אונבורדינג אימון ---------- */
+
+  const COACH_STEPS = [
+    { title: "מאמן אישי", body: "המשחק מדרג כל מהלך שלך ומראה לך כמה טוב שיחקת. שים לב לפס הצבעוני שמופיע אחרי כל תור." },
+    { title: "💡 רמזים", body: "נתקעת? לחץ על כפתור הרמז כדי לראות את המהלך המומלץ. המאמן מסביר גם למה זה המהלך הנכון." },
+    { title: "📊 סיכום משחק", body: "בסוף כל משחק תקבל ציון כללי ופירוט של התורות — כך תוכל ללמוד מטעויות ולהשתפר!" },
+  ];
+
+  const CoachOnboard = {
+    i: 0,
+    start() {
+      this.i = 0;
+      const el = $("#coach-onboard");
+      el.hidden = false;
+      $("#cob-dots").innerHTML = COACH_STEPS.map(() => "<i></i>").join("");
+      this.show();
+    },
+    show() {
+      const s = COACH_STEPS[this.i];
+      $("#cob-title").textContent = s.title;
+      $("#cob-body").textContent = s.body;
+      [...$("#cob-dots").children].forEach((d, k) => d.classList.toggle("on", k === this.i));
+      $("#cob-next").textContent = this.i === COACH_STEPS.length - 1 ? "בואו נשחק!" : "הבא";
+      $("#cob-skip").hidden = this.i === COACH_STEPS.length - 1;
+    },
+    next() {
+      if (this.i >= COACH_STEPS.length - 1) return this.end();
+      this.i++;
+      Sfx.place();
+      this.show();
+    },
+    end() {
+      $("#coach-onboard").hidden = true;
+      Profiles.active().stats.coachOnboardDone = true;
+      Profiles.save();
+      Analytics.track("coach_onboard_completed");
+    },
+    needed() {
+      const p = Profiles.active();
+      return p.stats.tutorialDone && !p.stats.coachOnboardDone;
+    },
+  };
+
+  $("#cob-next").onclick = () => CoachOnboard.next();
+  $("#cob-skip").onclick = () => CoachOnboard.end();
 
   /* ---------- שיתוף סיכום כתמונה ----------
      מצייר כרטיס על קנבס ומעביר אותו ל-Web Share. אם השיתוף לא נתמך,
@@ -2250,6 +2449,7 @@
 
   async function shareSummary() {
     if (!Game.lastResult) return;
+    Analytics.track("share_used");
     let blob;
     try {
       const cv = drawSummaryCard();
@@ -2281,6 +2481,7 @@
 
   function enterReplay() {
     if (!Game.log.length) return;
+    Analytics.track("replay_viewed");
     hideModal();
     Game.replay = { i: 0, playing: false, timer: null };
     Game.phase = "replay";
@@ -2652,6 +2853,7 @@
   }
 
   function startOnlineGame(myColor, first) {
+    Analytics.track("online_game", { variant: Game.variant });
     Game.gen++;
     clearTimeout(Game.rollTimer);
     Game.mode = "online";
@@ -2659,6 +2861,7 @@
     Game.silentCoach = true;
     Game.level = "medium";              // המנוע עדיין מדרג, רק בלי להציג
     Game.turkishAction = null; Game.naturalDouble = false;
+    Game.cube = 1; Game.cubeOwner = 0; Game.cubeOffered = false;
     if (Game.net) Game.net.drawPending = null;
     Game.state = initialState();
     Game.view = Game.state;
@@ -3250,6 +3453,7 @@
   function setBoardTheme(v) {
     document.body.dataset.board = v;
     try { localStorage.setItem(BOARD_KEY, v); } catch (_) {}
+    Analytics.track("theme_changed", { theme: v });
     [...$("#board-seg").children].forEach(c => c.classList.toggle("on", c.dataset.v === v));
   }
   $("#board-seg").onclick = e => {
@@ -3341,13 +3545,60 @@
   requestAnimationFrame(() => requestAnimationFrame(fitBoard));
   window.addEventListener("load", fitBoard);
 
-  /* ---------- התקנה כאפליקציה ----------
-     נרשם רק ב-http/https; מ-file:// דפדפנים חוסמים service worker. */
+  /* ---------- התקנה כאפליקציה + עדכון אוטומטי ----------
+     נרשם רק ב-http/https; מ-file:// דפדפנים חוסמים service worker.
+     כשה-SW החדש ממתין (waiting) — מציגים כפתור "עדכון זמין".
+     לחיצה עליו שולחת SKIP_WAITING ואז טוענת מחדש את הדף. */
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("sw.js").catch(() => {});
+    window.addEventListener("load", async () => {
+      try {
+        const reg = await navigator.serviceWorker.register("sw.js");
+
+        const updateBtn = $("#update-btn");
+
+        function showUpdateBtn(worker) {
+          if (!updateBtn) return;
+          updateBtn.hidden = false;
+          updateBtn.onclick = () => {
+            worker.postMessage("SKIP_WAITING");
+          };
+        }
+
+        /* SW חדש כבר ממתין (רענון ידני של הדף שלאחר עדכון) */
+        if (reg.waiting) showUpdateBtn(reg.waiting);
+
+        /* SW חדש הותקן במהלך הגלישה */
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener("statechange", () => {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              showUpdateBtn(nw);
+            }
+          });
+        });
+
+        /* לאחר ש-skipWaiting הופעל — ה-SW החדש נכנס לשימוש, טוענים מחדש */
+        let reloading = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!reloading) { reloading = true; location.reload(); }
+        });
+
+        /* בדיקת עדכון כל 30 דקות בזמן שהאפליקציה פתוחה */
+        setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+
+        /* קבלת גרסה מה-SW לאחר הפעלה */
+        navigator.serviceWorker.addEventListener("message", e => {
+          if (e.data && e.data.type === "VERSION") {
+            const lbl = $("#app-version-lbl");
+            if (lbl) lbl.textContent = "גרסה " + e.data.version;
+          }
+        });
+
+      } catch (_) {}
     });
   }
+  window.addEventListener("appinstalled", () => Analytics.track("app_installed"));
 
   /* ---------- התחלה ---------- */
   buildBoard();
@@ -3357,12 +3608,18 @@
   render();
   showScreen(Profiles.isNew ? "welcome" : "home");
 
+  if (!Profiles.isNew && !Profiles.active().stats.coachTipSeen && Profiles.active().stats.games > 0) {
+    Profiles.active().stats.coachTipSeen = true;
+    Profiles.save();
+    setTimeout(() => snack("חדש: הקש על ציון המהלך כדי לראות שידור חוזר של המהלך המומלץ 🎬"), 1500);
+  }
+
   window.__bg = {
-    Game, GEO, Stats, Profiles, Sfx, render, newGame, playerRoll, aiTurn, endPlayerTurn,
+    Game, GEO, Stats, Profiles, Analytics, Sfx, render, newGame, playerRoll, aiTurn, endPlayerTurn,
     updateButtons, gameOver, showStatsModal, showScreen, startGame, fitBoard,
     startTimer, stopTimer, resign, requestRematch,
     enterReplay, exitReplay, replayGoto, drawSummaryCard, shareSummary, setBoardTheme,
-    Tutorial, TUT_STEPS, performSwap, showDoubleChooser,
+    Tutorial, TUT_STEPS, CoachOnboard, COACH_STEPS, performSwap, showDoubleChooser,
     offerDraw, drawEnd, showDrawOfferModal,
     openCoach, closeCoach, coachShow,
     setVariant: v => { pendingVariant = v; onlineVariant = v; Game.variant = v; },

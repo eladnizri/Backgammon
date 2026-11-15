@@ -1,8 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="112" fill="#121820"/>
-  <rect x="12" y="12" width="488" height="488" rx="102" fill="none" stroke="#e3bd77" stroke-opacity=".55" stroke-width="14"/>
-  <path d="M107 96h117l-58.5 203z" fill="#5c6773"/>
-  <path d="M288 416h117l-58.5-203z" fill="#e3bd77"/>
-  <circle cx="347" cy="144" r="55" fill="#f7f3ea"/>
-  <circle cx="165" cy="368" r="55" fill="#2b333d" stroke="#7c8898" stroke-width="12"/>
+  <defs>
+    <linearGradient id="cu" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d4895a"/>
+      <stop offset="100%" stop-color="#8f5020"/>
+    </linearGradient>
+    <linearGradient id="iv" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#f2e8d4"/>
+      <stop offset="100%" stop-color="#bfac90"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Warm ebony background -->
+  <rect width="512" height="512" rx="110" fill="#120e0a"/>
+
+  <!-- Outer decorative border -->
+  <rect x="14" y="14" width="484" height="484" rx="98" fill="none"
+        stroke="#b06030" stroke-opacity=".55" stroke-width="1.5"/>
+  <!-- Inner decorative border -->
+  <rect x="22" y="22" width="468" height="468" rx="92" fill="none"
+        stroke="#b06030" stroke-opacity=".2" stroke-width="1"/>
+
+  <!-- Top copper triangle (player) -->
+  <path d="M148 68 L364 68 L256 238 Z" fill="url(#cu)"/>
+
+  <!-- Bottom ivory triangle (opponent) -->
+  <path d="M148 444 L364 444 L256 274 Z" fill="url(#iv)"/>
+
+  <!-- Center accent ring where the tips face each other -->
+  <circle cx="256" cy="256" r="22" fill="#120e0a"/>
+  <circle cx="256" cy="256" r="16" stroke="#c07840" stroke-width="2.5" fill="none"/>
+  <circle cx="256" cy="256" r="7" fill="#c07840"/>
 </svg>

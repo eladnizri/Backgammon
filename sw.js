@@ -1,6 +1,7 @@
 /* Service worker — מאפשר לפתוח את המשחק גם בלי אינטרנט.
-   כל שינוי בקבצים מחייב העלאת CACHE כדי שהגרסה החדשה תיתפס. */
-const CACHE = "shesh-besh-v7";
+   בכל עדכון: מעלים את VERSION ב-1 — זה מה שגורם לדפדפן לזהות גרסה חדשה. */
+const VERSION = "1.0.9";
+const CACHE = "shesh-besh-" + VERSION;
 
 const SHELL = [
   "./",
@@ -18,7 +19,13 @@ const SHELL = [
 ];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  /* לא קוראים skipWaiting — ה-SW החדש ימתין עד שהמשתמש יאשר עדכון */
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+});
+
+/* האפליקציה שולחת SKIP_WAITING כשהמשתמש לוחץ על כפתור העדכון */
+self.addEventListener("message", e => {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", e => {
@@ -26,6 +33,8 @@ self.addEventListener("activate", e => {
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ includeUncontrolled: true })
+        .then(clients => clients.forEach(c => c.postMessage({ type: "VERSION", version: VERSION }))))
   );
 });
 
