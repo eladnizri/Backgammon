@@ -1,35 +1,36 @@
 /* ==========================================================================
-   שש-בש — ממשק מודרני, כהה ומינימלי. מותאם קודם כול לטלפון.
+   שש-בש — עיצוב Ebony & Copper: אבנוס חם, נחושת/ברונזה, שנהב.
+   מותאם קודם כול לטלפון.
    ========================================================================== */
 
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
 :root {
-  --bg-0: #070a0d;
-  --bg-1: #10151b;
-  --surface: rgba(255, 255, 255, .055);
-  --surface-2: rgba(255, 255, 255, .09);
-  --line: rgba(255, 255, 255, .10);
-  --text: #eef2f6;
-  --text-dim: #93a1b0;
-  --gold: #e3bd77;
-  --gold-hi: #f7dcae;
-  --gold-dim: #a8873f;
+  --bg-0: #120e0a;
+  --bg-1: #1e1610;
+  --surface: rgba(255, 232, 196, .055);
+  --surface-2: rgba(255, 232, 196, .10);
+  --line: rgba(255, 232, 196, .10);
+  --text: #f2e8d8;
+  --text-dim: #96806a;
+  --gold: #c07840;
+  --gold-hi: #da9a60;
+  --gold-dim: #8a5020;
 
   /* ערכת הלוח — נדרסת ב-body[data-board] */
-  --felt: #151b23;
-  --pt-light-a: #5c6773;
-  --pt-light-b: #414c58;
-  --pt-dark-a: #29313b;
-  --pt-dark-b: #1b222b;
-  --frame-a: #29313b; --frame-b: #161b22; --frame-c: #10151b;
-  --bar-a: #12171e;   --bar-b: #1c232c;
+  --felt: #140f0c;
+  --pt-light-a: #584a38;
+  --pt-light-b: #3c3024;
+  --pt-dark-a: #231c14;
+  --pt-dark-b: #17110b;
+  --frame-a: #231c14; --frame-b: #13100c; --frame-c: #100e0b;
+  --bar-a: #120e0a;   --bar-b: #1e1610;
   --chk-w-1: #ffffff; --chk-w-2: #f3efe6; --chk-w-3: #cfc7b6; --chk-w-ring: #8d7f61;
-  --chk-b-1: #454e59; --chk-b-2: #232a33; --chk-b-3: #0c1015; --chk-b-ring: #9fb0c4;
+  --chk-b-1: #40393a; --chk-b-2: #231d1b; --chk-b-3: #100c0a; --chk-b-ring: #8a7a6a;
   --die-a: #fbfcfd;   --die-b: #dbe1e8;   --die-pip: #1b222b;
-  --die-ai-a: #2f3742; --die-ai-b: #171d25; --die-ai-pip: #e7edf4;
-  --pnum: rgba(255, 255, 255, .3);
+  --die-ai-a: #352a22; --die-ai-b: #1e1510; --die-ai-pip: #f0e4d0;
+  --pnum: rgba(255, 232, 196, .3);
 
   --ar: 1.6;                     /* יחס רוחב/גובה של הלוח */
   --ease: cubic-bezier(.22, .61, .36, 1);
@@ -54,8 +55,8 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: var(--text);
   background:
-    radial-gradient(120% 80% at 50% -10%, #1b2836 0%, transparent 55%),
-    radial-gradient(90% 60% at 50% 108%, #17222e 0%, transparent 60%),
+    radial-gradient(120% 80% at 50% -10%, #2a1a0c 0%, transparent 55%),
+    radial-gradient(90% 60% at 50% 108%, #1e1206 0%, transparent 60%),
     var(--bg-0);
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -95,7 +96,7 @@ body {
 .logo-lg {
   width: clamp(88px, 25vmin, 124px);
   aspect-ratio: 1;
-  filter: drop-shadow(0 14px 30px rgba(227, 189, 119, .22));
+  filter: drop-shadow(0 14px 30px rgba(192, 120, 64, .28));
 }
 .home-title {
   margin: 4px 0 0;
@@ -204,9 +205,9 @@ body {
 .home-btn:active { transform: scale(.975); background: var(--surface-2); }
 .home-btn.primary {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold-dim));
-  color: #241a08;
+  color: #1a0e06;
   border-color: transparent;
-  box-shadow: 0 12px 28px -10px rgba(227, 189, 119, .6);
+  box-shadow: 0 12px 28px -10px rgba(192, 120, 64, .65);
 }
 .home-btn:disabled { opacity: .4; box-shadow: none; cursor: default; }
 .home-btn:disabled:active { transform: none; }
@@ -376,7 +377,7 @@ body {
   transition: background .16s, border-color .16s, transform .1s;
 }
 .lvl-card:active { transform: scale(.98); }
-.lvl-card:hover { background: var(--surface-2); border-color: rgba(227,189,119,.4); }
+.lvl-card:hover { background: var(--surface-2); border-color: rgba(192,120,64,.4); }
 .lvl-name { grid-column: 1; font-size: .98rem; font-weight: 700; color: var(--text); }
 .lvl-desc { grid-column: 1; font-size: .75rem; color: var(--text-dim); line-height: 1.4; }
 .lvl-dots { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: flex; gap: 4px; }
@@ -384,11 +385,11 @@ body {
 .lvl-dots i.on { background: var(--gold); }
 /* אלוף — כרטיס פרימיום עם מסגרת זהב */
 .lvl-card.champion {
-  border-color: rgba(227,189,119,.5);
+  border-color: rgba(192,120,64,.5);
   background: linear-gradient(150deg, color-mix(in srgb, var(--gold) 12%, var(--surface)), var(--surface) 70%);
 }
 .lvl-card.champion .lvl-name { color: var(--gold-hi); }
-.lvl-card.champion:hover { border-color: rgba(227,189,119,.75); }
+.lvl-card.champion:hover { border-color: rgba(192,120,64,.75); }
 
 .row-lbl small { display: block; font-size: .68rem; color: var(--text-dim); margin-top: 1px; }
 
@@ -466,9 +467,9 @@ body {
   transition: border-color .25s, background .25s, box-shadow .25s;
 }
 .strip.active {
-  border-color: rgba(227, 189, 119, .5);
-  background: rgba(227, 189, 119, .09);
-  box-shadow: 0 0 0 1px rgba(227, 189, 119, .12), 0 6px 22px -10px rgba(227, 189, 119, .5);
+  border-color: rgba(192, 120, 64, .5);
+  background: rgba(192, 120, 64, .09);
+  box-shadow: 0 0 0 1px rgba(192, 120, 64, .12), 0 6px 22px -10px rgba(192, 120, 64, .5);
 }
 
 /* טיימר התור — פס שמתקצר לאורך תחתית הרצועה של מי שתורו.
@@ -525,11 +526,11 @@ body {
   background: rgba(255, 255, 255, .10);
   transition: background .3s var(--ease), box-shadow .3s;
 }
-.borne i.on { background: linear-gradient(180deg, var(--gold-hi), var(--gold-dim)); box-shadow: 0 0 6px rgba(227, 189, 119, .55); }
-.borne.target { box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(227, 189, 119, .55); cursor: pointer; animation: borne-pulse 1s ease-in-out infinite; }
+.borne i.on { background: linear-gradient(180deg, var(--gold-hi), var(--gold-dim)); box-shadow: 0 0 6px rgba(192, 120, 64, .55); }
+.borne.target { box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(192, 120, 64, .55); cursor: pointer; animation: borne-pulse 1s ease-in-out infinite; }
 @keyframes borne-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(227, 189, 119, .45); }
-  50%      { box-shadow: 0 0 0 3px var(--gold-hi), 0 0 22px rgba(227, 189, 119, .8); }
+  0%, 100% { box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(192, 120, 64, .45); }
+  50%      { box-shadow: 0 0 0 3px var(--gold-hi), 0 0 22px rgba(192, 120, 64, .8); }
 }
 
 .pipbox { flex: none; text-align: center; line-height: 1.05; }
@@ -627,7 +628,7 @@ body {
   left: 50%; top: 8%; bottom: 8%;
   width: 1px;
   transform: translateX(-50%);
-  background: linear-gradient(180deg, transparent, rgba(227,189,119,.28) 20%, rgba(227,189,119,.28) 80%, transparent);
+  background: linear-gradient(180deg, transparent, rgba(192,120,64,.28) 20%, rgba(192,120,64,.28) 80%, transparent);
 }
 
 /* ---------- חיילים ---------- */
@@ -706,7 +707,7 @@ body {
   opacity: 1;
   inset: -4px;
   border-width: 2.5px;
-  box-shadow: 0 0 14px rgba(227, 189, 119, .85);
+  box-shadow: 0 0 14px rgba(192, 120, 64, .85);
 }
 .checker.dragging {
   z-index: 60;
@@ -746,8 +747,8 @@ body {
   border-radius: 50%;
   z-index: 8;
   cursor: pointer;
-  border: 2px dashed rgba(227, 189, 119, .9);
-  background: rgba(227, 189, 119, .14);
+  border: 2px dashed rgba(192, 120, 64, .9);
+  background: rgba(192, 120, 64, .14);
   animation: halo 1.9s ease-in-out infinite;
 }
 .dest.hit {
@@ -957,15 +958,15 @@ body {
   cursor: pointer;
   padding: 0;
   background: linear-gradient(160deg, var(--gold-hi), var(--gold-dim));
-  box-shadow: 0 8px 22px -6px rgba(227, 189, 119, .6), inset 0 1px 0 rgba(255, 255, 255, .55);
+  box-shadow: 0 8px 22px -6px rgba(192, 120, 64, .6), inset 0 1px 0 rgba(255, 255, 255, .55);
   display: grid;
   place-items: center;
   transition: transform .12s var(--ease), opacity .2s;
   animation: breathe 2.4s ease-in-out infinite;
 }
 @keyframes breathe {
-  0%, 100% { box-shadow: 0 8px 22px -6px rgba(227, 189, 119, .45), inset 0 1px 0 rgba(255,255,255,.55); }
-  50%      { box-shadow: 0 8px 30px -4px rgba(227, 189, 119, .85), inset 0 1px 0 rgba(255,255,255,.55); }
+  0%, 100% { box-shadow: 0 8px 22px -6px rgba(192, 120, 64, .45), inset 0 1px 0 rgba(255,255,255,.55); }
+  50%      { box-shadow: 0 8px 30px -4px rgba(192, 120, 64, .85), inset 0 1px 0 rgba(255,255,255,.55); }
 }
 .roll-btn:active { transform: scale(.93); }
 .roll-btn .roll-face {
@@ -1448,7 +1449,7 @@ body[data-board="lagoon"] {
   transition: border-color .16s, transform .1s, background .16s;
 }
 .av-opt:active { transform: scale(.92); }
-.av-opt.on { border-color: var(--gold); background: rgba(227, 189, 119, .14); }
+.av-opt.on { border-color: var(--gold); background: rgba(192, 120, 64, .14); }
 
 .name-input {
   font: inherit;
@@ -1673,7 +1674,7 @@ body[data-board="lagoon"] {
   box-shadow: 0 3px 9px -3px rgba(0, 0, 0, .55);
 }
 .dbl-die:active { transform: scale(.9); }
-.dbl-die:hover { box-shadow: 0 0 0 2px var(--gold), 0 3px 12px -3px rgba(227, 189, 119, .6); }
+.dbl-die:hover { box-shadow: 0 0 0 2px var(--gold), 0 3px 12px -3px rgba(192, 120, 64, .6); }
 .dbl-die span { width: 100%; height: 100%; }
 .dbl-die span.dot { border-radius: 50%; background: #1b222b; }
 
@@ -1836,7 +1837,7 @@ body { background: var(--bg-0); }
   box-shadow:
     -4px -4px 10px rgba(255, 255, 255, .06),
     5px 5px 14px rgba(0, 0, 0, .55),
-    0 10px 26px -12px rgba(227, 189, 119, .5);
+    0 10px 26px -12px rgba(192, 120, 64, .5);
 }
 .home-btn.primary:active, .pill-btn.gold:active, .roll-btn:active {
   box-shadow:
@@ -1852,20 +1853,20 @@ body { background: var(--bg-0); }
   padding: 4px 10px;
   border: 2px solid var(--gold);
   border-radius: 8px;
-  background: rgba(227,189,119,.12);
+  background: rgba(192,120,64,.12);
   color: var(--gold);
   font-weight: 800; font-size: 15px;
   cursor: pointer;
   transition: background .18s, transform .12s;
 }
-.cube-btn:active { transform: scale(.93); background: rgba(227,189,119,.22); }
+.cube-btn:active { transform: scale(.93); background: rgba(192,120,64,.22); }
 
 .cube-display {
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 28px;
   border: 1.5px solid var(--gold);
   border-radius: 5px;
-  background: rgba(227,189,119,.10);
+  background: rgba(192,120,64,.10);
   color: var(--gold);
   font-weight: 800; font-size: 13px;
   margin-inline-start: 6px;
@@ -1939,7 +1940,7 @@ body { background: var(--bg-0); }
 }
 @keyframes update-pulse {
   0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,.45); }
-  50%       { box-shadow: 0 4px 24px rgba(227,189,119,.55); }
+  50%       { box-shadow: 0 4px 24px rgba(192,120,64,.55); }
 }
 @keyframes update-bounce {
   0%, 60%, 100% { transform: translateY(0); }
