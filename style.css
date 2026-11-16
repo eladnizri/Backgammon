@@ -948,6 +948,7 @@ body {
 .sub-scroll > .pill-btn.wide,
 #lobby-host > .pill-btn.wide,
 #lobby-join > .pill-btn.wide { display: flex; width: 100%; }
+#room-share { width: 100%; justify-content: center; margin: 10px 0 4px; }
 .pill-btn.danger {
   margin-top: 10px;
   color: #ff9d8a;

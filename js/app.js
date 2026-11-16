@@ -2994,6 +2994,17 @@ const APP_VERSION = "1.0.10";
     setTimeout(() => { $("#room-copy").textContent = "העתק קוד"; }, 1800);
   };
 
+  $("#room-share").onclick = async () => {
+    const code = $("#room-code").textContent;
+    const text = `בוא נשחק שש-בש! כנס ל-6besh.site ולחץ "הצטרף עם קוד", הקוד שלי: ${code}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "שש-בש", text }); } catch (_) {}
+    } else {
+      try { await navigator.clipboard.writeText(text); $("#room-share").textContent = "הועתק ✓"; setTimeout(() => { $("#room-share").textContent = "📤 שתף עם חבר"; }, 1800); }
+      catch (_) {}
+    }
+  };
+
   /* ---------- ניווט בין מסכים ---------- */
 
   const SCREENS = ["welcome", "home", "game", "stats", "online", "about"];
