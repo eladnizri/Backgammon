@@ -335,6 +335,7 @@ body {
   outline: none;
 }
 #join-input:focus { border-color: var(--gold); }
+#join-input:focus-visible { border-color: var(--gold); outline: 2px solid var(--gold-hi); outline-offset: 2px; }
 #join-input::placeholder { color: rgba(255, 255, 255, .16); letter-spacing: .18em; }
 
 .lobby-status { text-align: center; font-size: .84rem; color: var(--text-dim); margin: 6px 0 14px; min-height: 20px; }
@@ -1485,7 +1486,8 @@ body[data-board="lagoon"] {
   border-radius: 15px;
   outline: none;
 }
-.name-input:focus { border-color: var(--gold); }
+.name-input:focus { border-color: var(--gold); outline: none; }
+.name-input:focus-visible { border-color: var(--gold); outline: 2px solid var(--gold-hi); outline-offset: 2px; }
 .name-input::placeholder { color: var(--text-dim); font-weight: 400; }
 
 /* כפתור אישור התור */
@@ -2012,3 +2014,22 @@ html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-si
   100% { opacity: 0; transform: translateY(-60px) scale(1.05); }
 }
 @media (prefers-reduced-motion: reduce) { .fly-emoji { animation: none; opacity: 1; } }
+
+/* ===== UX fixes ===== */
+
+/* Global focus-visible ring for interactive elements */
+:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+
+/* Visible label above name input */
+.field-label { display: block; font-size: .85rem; color: var(--text-dim); margin-bottom: 6px; text-align: center; }
+
+/* Increase small description text in home buttons */
+.daily-txt small { font-size: .78rem; }
+
+/* Spacer between gold and danger buttons */
+.resign-spacer { height: 18px; }
+
+/* Inline confirmation UI */
+.inline-confirm { display: flex; gap: 8px; align-items: center; justify-content: center; padding: 10px 0; }
+.inline-confirm .confirm-msg { font-size: .88rem; color: var(--text-dim); }
+.inline-confirm .pill-btn { min-width: 70px; font-size: .85rem; padding: 8px 14px; }

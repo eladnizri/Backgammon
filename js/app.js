@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.10";
+const APP_VERSION = "1.0.17";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -1878,6 +1878,30 @@ const APP_VERSION = "1.0.10";
     if (msg) snack(msg);
   }
 
+  /* ---------- אישור inline (תחליף ל-confirm) ---------- */
+  function inlineConfirm(anchor, msg, onYes) {
+    const existing = anchor.parentNode.querySelector(".inline-confirm");
+    if (existing) existing.remove();
+    const wrap = document.createElement("div");
+    wrap.className = "inline-confirm";
+    wrap.innerHTML = `<span class="confirm-msg">${msg}</span>
+      <button class="pill-btn danger">כן</button>
+      <button class="pill-btn">לא</button>`;
+    anchor.after(wrap);
+    wrap.querySelector(".danger").onclick = () => { wrap.remove(); onYes(); };
+    wrap.querySelectorAll(".pill-btn")[1].onclick = () => wrap.remove();
+  }
+
+  /* ---------- מניעת לחיצה כפולה ---------- */
+  function guardClick(btn, fn, ms) {
+    btn.onclick = () => {
+      if (btn.dataset.busy) return;
+      btn.dataset.busy = "1";
+      fn();
+      setTimeout(() => delete btn.dataset.busy, ms || 600);
+    };
+  }
+
   let snackTimer = null;
   function snack(text) {
     const el = $("#snack");
@@ -2593,10 +2617,11 @@ const APP_VERSION = "1.0.10";
 
   function resign() {
     if (!["playerMove", "playerRoll", "ai", "remote", "rolling", "auto", "blocked", "confirm"].includes(Game.phase)) return;
-    hideSheet();
-    if (!confirm("לפרוש מהמשחק? ההפסד ייספר בסטטיסטיקה.")) return;
-    if (Game.mode === "online") netSend({ t: "resign" });
-    gameOver(-Game.me, "resign");
+    inlineConfirm($("#sheet-resign"), "לפרוש? ההפסד ייספר.", () => {
+      hideSheet();
+      if (Game.mode === "online") netSend({ t: "resign" });
+      gameOver(-Game.me, "resign");
+    });
   }
 
   /* ---------- הצעת תיקו (רק מול חבר) ---------- */
@@ -3620,7 +3645,7 @@ const APP_VERSION = "1.0.10";
   $("#welcome-name").onkeydown = e => {
     if (e.key === "Enter" && $("#welcome-name").value.trim()) finishWelcome();
   };
-  $("#welcome-go").onclick = finishWelcome;
+  guardClick($("#welcome-go"), finishWelcome);
 
   function finishWelcome() {
     const name = $("#welcome-name").value.trim();
@@ -3678,7 +3703,10 @@ const APP_VERSION = "1.0.10";
       const name = prompt("שם השחקן:", cur ? cur.name : "");
       if (name && name.trim()) Profiles.rename(id, name.trim());
     }
-    if (act === "del" && confirm("למחוק את השחקן והסטטיסטיקה שלו?")) Profiles.remove(id);
+    if (act === "del") {
+      inlineConfirm(btn, "למחוק את השחקן?", () => { Profiles.remove(id); renderProfiles(); renderHomeQuick(); });
+      return;
+    }
     renderProfiles();
     renderHomeQuick();
   };
@@ -3687,6 +3715,7 @@ const APP_VERSION = "1.0.10";
   $("#btn-stats").onclick = () => showScreen("stats");
   $("#btn-settings").onclick = showSheet;
   $("#btn-about").onclick = () => { showScreen("about"); const v = $("#about-version"); if (v) v.textContent = "גרסה " + APP_VERSION; };
+  { const lbl = $("#app-version-lbl"); if (lbl) lbl.textContent = "גרסה " + APP_VERSION; }
 
   $("#level-backdrop").onclick = e => { if (e.target.id === "level-backdrop") $("#level-backdrop").hidden = true; };
   $("#lvl-cards").onclick = e => {
@@ -3721,7 +3750,8 @@ const APP_VERSION = "1.0.10";
     const d = Stats.d;
     const host = $("#stats-body");
     if (!d.games && !d.rated) {
-      host.innerHTML = `<p class="stat-empty">עוד לא שיחקת משחק.<br>הסטטיסטיקות ייאספו מעצמן תוך כדי משחק.</p>`;
+      host.innerHTML = `<p class="stat-empty">עוד לא שיחקת משחק.<br>הסטטיסטיקות ייאספו מעצמן תוך כדי משחק.</p>
+        <button class="pill-btn wide gold" onclick="document.getElementById('stats-back').click(); document.getElementById('btn-play').click();">התחל לשחק</button>`;
       return;
     }
     const avg = Stats.avgScore();
@@ -3831,10 +3861,10 @@ const APP_VERSION = "1.0.10";
 
     host.innerHTML = html;
     $("#stats-reset").onclick = () => {
-      if (confirm("לאפס את כל הסטטיסטיקות? הפעולה אינה הפיכה.")) {
+      inlineConfirm($("#stats-reset"), "לאפס את כל הסטטיסטיקות?", () => {
         Stats.reset();
         renderStatsScreen();
-      }
+      });
     };
   }
 
@@ -3854,7 +3884,7 @@ const APP_VERSION = "1.0.10";
   $("#menu-btn").onclick = showSheet;
   $("#sheet-draw").onclick = offerDraw;
   $("#sheet-backdrop").onclick = e => { if (e.target.id === "sheet-backdrop") hideSheet(); };
-  $("#sheet-new").onclick = () => { hideSheet(); Game.mode === "online" ? goHome() : newGame(); };
+  guardClick($("#sheet-new"), () => { hideSheet(); Game.mode === "online" ? goHome() : newGame(); });
   $("#sheet-home").onclick = goHome;
   $("#avg-chip").onclick = showStatsModal;
 
