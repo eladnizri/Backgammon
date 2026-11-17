@@ -56,8 +56,9 @@
 
     <div class="av-picker" id="av-picker"></div>
 
+    <label for="welcome-name" class="field-label">שם השחקן</label>
     <input id="welcome-name" class="name-input" maxlength="14"
-           placeholder="השם שלך" autocomplete="nickname" aria-label="השם שלך">
+           placeholder="השם שלך" autocomplete="nickname">
 
     <div class="home-actions">
       <button class="home-btn primary" id="welcome-go" disabled>בוא נתחיל</button>
@@ -178,9 +179,9 @@
     </div>
     <div class="replay-ctl">
       <button id="replay-exit" class="pill-btn">סיום</button>
-      <button id="replay-prev" class="rp-btn" aria-label="הקודם">◀</button>
-      <button id="replay-play" class="rp-btn big" aria-label="נגן">▶</button>
-      <button id="replay-next" class="rp-btn" aria-label="הבא">▶</button>
+      <button id="replay-prev" class="rp-btn" aria-label="הקודם" title="הקודם">◀</button>
+      <button id="replay-play" class="rp-btn big" aria-label="נגן" title="נגן">▶</button>
+      <button id="replay-next" class="rp-btn" aria-label="הבא" title="הבא">▶</button>
     </div>
   </footer>
 
@@ -375,6 +376,7 @@
       <div class="code-box">
         <span class="code-cap">הכניסו את קוד החדר</span>
         <input id="join-input" dir="ltr" inputmode="latin" autocomplete="off"
+               autocorrect="off" spellcheck="false"
                maxlength="6" placeholder="ABC123" aria-label="קוד חדר">
       </div>
       <p class="lobby-status" id="join-status"></p>
@@ -496,8 +498,9 @@
       <button class="pill-btn wide gold" id="sheet-new">משחק חדש</button>
     </div>
     <button class="pill-btn wide" id="sheet-draw" hidden>הצע תיקו</button>
+    <div class="resign-spacer"></div>
     <button class="pill-btn wide danger" id="sheet-resign">פרוש מהמשחק</button>
-    <p class="app-version" id="app-version-lbl">גרסה 1.0.9</p>
+    <p class="app-version" id="app-version-lbl"></p>
   </div>
 </div>
 
