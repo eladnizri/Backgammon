@@ -886,7 +886,7 @@ const APP_VERSION = "1.0.10";
     undoBtn.hidden = !(Game.prefix.length > 0 &&
       (Game.phase === "playerMove" || Game.phase === "confirm" || Game.phase === "relocate"));
     /* רמז — רק מול המחשב, כשיש לשחקן מהלך רגיל לבחור */
-    if (hintBtn) hintBtn.hidden = !(Game.mode === "cpu" && Game.phase === "playerMove" && !Game.challenge);
+    if (hintBtn) hintBtn.hidden = !(Game.mode === "cpu" && Game.phase === "playerMove" && !Game.challenge && !Game.academy);
     /* קוביית הכפלה — רק מול המחשב, במשחק רגיל, לפני ההטלה, כשיש זכות להכפיל */
     if (cubeBtn) cubeBtn.hidden = !(
       Game.mode === "cpu" && Game.variant === "regular" &&
@@ -990,6 +990,7 @@ const APP_VERSION = "1.0.10";
   function newGame(opts = {}) {
     Game.gen++;
     Game.challenge = null;
+    Game.academy = null;
     $("#emoji-btn").hidden = Game.mode !== "online";
     Game.turkishAction = null; Game.naturalDouble = false;
     Game.state = initialState();
@@ -1324,6 +1325,7 @@ const APP_VERSION = "1.0.10";
     clearMarks();
 
     if (Game.challenge) return finishChallenge();
+    if (Game.academy) return finishAcademy();
 
     Stats.add("turns");
     const entry = {
@@ -1983,6 +1985,12 @@ const APP_VERSION = "1.0.10";
       Game.phase = "idle";
       render(); updateButtons();
       showChallengeResult();
+      return;
+    }
+    if (Game.academy) {
+      Game.phase = "idle";
+      render(); updateButtons();
+      showAcademyResult();
       return;
     }
     Game.phase = "ai";
@@ -3210,6 +3218,181 @@ const APP_VERSION = "1.0.10";
 
   $("#btn-daily").onclick = startChallenge;
 
+  /* ---------- אקדמיה — 100 שלבים עם קושי עולה ---------- */
+
+  function academyData() {
+    const st = Profiles.active().stats;
+    st.academy = st.academy || { levels: {} };
+    return st.academy;
+  }
+
+  function academyStars(lvIdx) {
+    const d = academyData();
+    return (d.levels[lvIdx] && d.levels[lvIdx].stars) || 0;
+  }
+
+  function academyTotalStars() {
+    const d = academyData();
+    let total = 0;
+    for (const k in d.levels) total += (d.levels[k].stars || 0);
+    return total;
+  }
+
+  function academyUnlocked(lvIdx) {
+    if (lvIdx === 0) return true;
+    return academyStars(lvIdx - 1) >= 1;
+  }
+
+  function starsForScore(score) {
+    if (score >= 95) return 3;
+    if (score >= 80) return 2;
+    if (score >= 60) return 1;
+    return 0;
+  }
+
+  function renderAcademyGrid() {
+    const grid = $("#academy-grid");
+    grid.innerHTML = "";
+    const totalStars = academyTotalStars();
+    $("#acad-stars-n").textContent = totalStars;
+
+    for (let i = 0; i < 100; i++) {
+      const btn = document.createElement("button");
+      btn.className = "acad-cell";
+      const unlocked = academyUnlocked(i);
+      const stars = academyStars(i);
+      btn.classList.toggle("locked", !unlocked);
+      btn.classList.toggle("done", stars > 0);
+      if (stars === 3) btn.classList.add("perfect");
+
+      const num = document.createElement("span");
+      num.className = "acad-num";
+      num.textContent = i + 1;
+      btn.appendChild(num);
+
+      if (stars > 0) {
+        const starRow = document.createElement("span");
+        starRow.className = "acad-star-row";
+        starRow.textContent = "⭐".repeat(stars) + "☆".repeat(3 - stars);
+        btn.appendChild(starRow);
+      } else if (!unlocked) {
+        const lock = document.createElement("span");
+        lock.className = "acad-lock";
+        lock.textContent = "🔒";
+        btn.appendChild(lock);
+      }
+
+      if (unlocked) {
+        const idx = i;
+        btn.onclick = () => startAcademyLevel(idx);
+      }
+      grid.appendChild(btn);
+    }
+  }
+
+  function renderAcademyBtn() {
+    const total = academyTotalStars();
+    const done = Object.keys(academyData().levels).length;
+    if (done > 0) {
+      $("#academy-sub").textContent = `⭐ ${total}/300 · ${done}/100 שלבים`;
+    } else {
+      $("#academy-sub").textContent = "100 שלבים עם קושי עולה";
+    }
+  }
+
+  function startAcademyLevel(idx) {
+    if (idx < 0 || idx >= ACADEMY_LEVELS.length) return;
+    const lv = ACADEMY_LEVELS[idx];
+
+    netTeardown();
+    Game.mode = "cpu";
+    Game.me = WHITE;
+    Game.silentCoach = false;
+    Game.variant = "regular";
+    Game.oppName = "המחשב";
+    layoutPoints();
+    applyStripColors();
+    setOpponentLabel(`שלב ${idx + 1}`, "🎓");
+    setMeLabel();
+    $("#net-warn").hidden = true;
+    $("#emoji-btn").hidden = true;
+    showScreen("game");
+
+    Game.gen++;
+    stopTimer(); clearTimeout(Game.rollTimer);
+    hideToast(); hideModal(); hideSheet();
+    Game.challenge = null;
+    Game.academy = { idx, result: null };
+    Game.state = lv.state;
+    Game.view = lv.state;
+    Game.ratings = []; Game.log = []; Game.replay = null;
+    Game.coach = null; Game.lastCoach = null;
+    Game.cube = 1; Game.cubeOwner = 0;
+    Game.turnNumber = 0;
+    Game.diceUsed = [];
+    Analytics.track("academy_start", { level: idx + 1 });
+    $("#title-level").textContent = `אקדמיה · שלב ${idx + 1}`;
+    renderDice(true);
+    beginMoveTurn(lv.dice, Game.gen);
+    status(`🎓 שלב ${idx + 1} — יצא <b>${lv.dice[0]}-${lv.dice[1]}</b> — מצא את המהלך הכי טוב`);
+    updateButtons();
+  }
+
+  function finishAcademy() {
+    const a = Game.academy;
+    const r = rateTurn(Game.turnStart, Game.me, Game.dice, Game.state);
+    r.turn = 1; r.dice = Game.dice.slice();
+    r.before = Game.turnStart; r.myMoves = Game.prefix.slice(); r.myAfter = Game.state; r.color = Game.me;
+    a.result = r;
+    Game.phase = "idle";
+    render();
+
+    const stars = starsForScore(r.score);
+    const d = academyData();
+    const prev = d.levels[a.idx];
+    const prevStars = prev ? prev.stars : 0;
+    if (stars > prevStars) {
+      d.levels[a.idx] = { stars, score: r.score };
+      Profiles.save();
+    }
+    Analytics.track("academy_done", { level: a.idx + 1, score: r.score, stars });
+    r.score >= 90 ? Sfx.win() : null;
+    showToast(r);
+    setTimeout(() => { if (Game.academy === a && Game.phase === "idle") showAcademyResult(); }, 1600);
+  }
+
+  function showAcademyResult() {
+    const a = Game.academy;
+    if (!a || !a.result) return;
+    const r = a.result;
+    const stars = starsForScore(r.score);
+    const starStr = "⭐".repeat(stars) + "☆".repeat(3 - stars);
+    const head = stars === 3 ? "🏆 מושלם!" : stars === 2 ? "👏 יפה מאוד" : stars >= 1 ? "🙂 עברת!" : "😅 נסה שוב";
+    const canCoach = coachAvailable(r);
+    const nextUnlocked = a.idx + 1 < 100 && (stars >= 1 || academyUnlocked(a.idx + 1));
+    showModal(`
+      <h3>${head}</h3>
+      <p class="daily-score">${r.score}<span>/100</span></p>
+      <p class="acad-result-stars">${starStr}</p>
+      <p class="acad-result-info">שלב ${a.idx + 1} מתוך 100</p>
+      ${stars === 0 ? `<p class="note">צריך לפחות 60 כדי לעבור לשלב הבא</p>` : ""}
+      ${canCoach ? `<div class="actions"><button class="pill-btn wide gold" id="m-acad-coach">🎬 הצג את המהלך הטוב ביותר</button></div>` : ""}
+      <div class="actions">
+        <button class="pill-btn wide" id="m-acad-retry">🔄 נסה שוב</button>
+        ${nextUnlocked ? `<button class="pill-btn wide gold" id="m-acad-next">▶ שלב ${a.idx + 2}</button>` : ""}
+        <button class="pill-btn wide" id="m-acad-grid">חזרה לאקדמיה</button>
+      </div>`);
+    const coachBtn = $("#m-acad-coach");
+    if (coachBtn) coachBtn.onclick = () => { hideModal(); Game.lastCoach = r; openCoach(); $("#coach-close").textContent = "חזרה לתוצאה"; };
+    $("#m-acad-retry").onclick = () => { hideModal(); startAcademyLevel(a.idx); };
+    const nextBtn = $("#m-acad-next");
+    if (nextBtn) nextBtn.onclick = () => { hideModal(); startAcademyLevel(a.idx + 1); };
+    $("#m-acad-grid").onclick = () => { Game.academy = null; hideModal(); showScreen("academy"); renderAcademyGrid(); };
+  }
+
+  $("#btn-academy").onclick = () => { showScreen("academy"); renderAcademyGrid(); };
+  $("#academy-back").onclick = () => showScreen("home");
+
   /* ---------- אימוג'י מול חבר ---------- */
 
   const EMOJIS = ["😂", "🔥", "😤", "👏", "😱", "🙏", "😎", "🤬"];
@@ -3240,13 +3423,13 @@ const APP_VERSION = "1.0.10";
 
   /* ---------- ניווט בין מסכים ---------- */
 
-  const SCREENS = ["welcome", "home", "game", "stats", "online", "about"];
+  const SCREENS = ["welcome", "home", "game", "stats", "online", "about", "academy"];
   function showScreen(name) {
     /* שכבות צפות שייכות למסך שממנו יצאנו — אחרת הן נשארות תלויות מעליו */
     hideModal(); hideSheet(); hideProfiles();
     $("#dbl-bar").hidden = true;
     SCREENS.forEach(s => $("#screen-" + s).classList.toggle("on", s === name));
-    if (name === "home") { renderHomeQuick(); renderDailyBtn(); }
+    if (name === "home") { renderHomeQuick(); renderDailyBtn(); renderAcademyBtn(); }
     if (name === "stats") renderStatsScreen();
     if (name === "game") fitBoard();
   }
