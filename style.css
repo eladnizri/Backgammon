@@ -125,7 +125,7 @@ body {
 .who-chip:active { transform: scale(.97); background: var(--surface-2); }
 .who-av { font-size: 1.1rem; line-height: 1; }
 .who-name { font-size: .9rem; font-weight: 700; }
-.who-swap { font-size: .69rem; color: var(--gold); opacity: .85; }
+.who-swap { font-size: .75rem; color: var(--gold); opacity: .85; }
 
 /* רשימת הפרופילים */
 .prof-row {
@@ -158,7 +158,7 @@ body {
   padding: 0 2px;
 }
 .prof-name { display: block; font-size: .92rem; font-weight: 700; }
-.prof-sub { display: block; font-size: .68rem; color: var(--text-dim); margin-top: 1px; }
+.prof-sub { display: block; font-size: .75rem; color: var(--text-dim); margin-top: 1px; }
 .prof-ico {
   flex: none;
   width: 34px; height: 34px;
@@ -185,7 +185,7 @@ body {
   border: 1px solid var(--line);
 }
 .home-quick .q b { display: block; font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-.home-quick .q span { font-size: .6rem; letter-spacing: .1em; color: var(--text-dim); }
+.home-quick .q span { font-size: .75rem; letter-spacing: .1em; color: var(--text-dim); }
 
 .home-actions { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 380px; }
 .home-btn-row { display: flex; gap: 8px; width: 100%; }
@@ -198,7 +198,7 @@ body {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 17px;
-  padding: 13px 18px;
+  padding: 15px 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -218,7 +218,7 @@ body {
 .home-btn svg { width: 19px; height: 19px; fill: currentColor; }
 .home-btn svg.stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-.home-foot { margin: 0; font-size: .72rem; color: var(--text-dim); opacity: .75; }
+.home-foot { margin: 0; font-size: .75rem; color: var(--text-dim); }
 
 /* ---------- מסכי משנה (סטטיסטיקות, לובי) ---------- */
 
@@ -265,7 +265,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 .stat-card b.gold { color: var(--gold); }
-.stat-card span { font-size: .66rem; color: var(--text-dim); line-height: 1.3; display: block; margin-top: 2px; }
+.stat-card span { font-size: .75rem; color: var(--text-dim); line-height: 1.3; display: block; margin-top: 2px; }
 
 /* שורות ערך */
 .stat-rows { background: var(--surface); border: 1px solid var(--line); border-radius: 15px; overflow: hidden; }
@@ -309,7 +309,7 @@ body {
   border: 1px solid var(--line);
   margin-bottom: 14px;
 }
-.code-cap { font-size: .74rem; letter-spacing: .08em; color: var(--text-dim); }
+.code-cap { font-size: .75rem; letter-spacing: .08em; color: var(--text-dim); }
 #room-code {
   font-size: 2.3rem;
   font-weight: 800;
@@ -356,7 +356,7 @@ body {
 .about-hero .logo-lg { width: 80px; height: 80px; filter: drop-shadow(0 8px 24px rgba(192,120,64,.3)); }
 .about-name { font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em; }
 .about-tagline { font-size: .88rem; color: var(--text-dim); }
-.about-version { font-size: .72rem; color: var(--text-dim); opacity: .7; margin-top: 2px; }
+.about-version { font-size: .75rem; color: var(--text-dim); opacity: .7; margin-top: 2px; }
 .about-section { padding: 14px 0; border-top: 1px solid var(--line); }
 .about-section h3 { font-size: .92rem; font-weight: 600; margin-bottom: 8px; color: var(--gold-hi); }
 .about-section p { font-size: .84rem; color: var(--text-dim); line-height: 1.6; margin: 4px 0; }
@@ -399,7 +399,7 @@ body {
 .lvl-card:active { transform: scale(.98); }
 .lvl-card:hover { background: var(--surface-2); border-color: rgba(192,120,64,.4); }
 .lvl-name { grid-column: 1; font-size: .98rem; font-weight: 700; color: var(--text); }
-.lvl-desc { grid-column: 1; font-size: .75rem; color: var(--text-dim); line-height: 1.4; }
+.lvl-desc { grid-column: 1; font-size: .78rem; color: var(--text-dim); line-height: 1.4; }
 .lvl-dots { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: flex; gap: 4px; }
 .lvl-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.14); }
 .lvl-dots i.on { background: var(--gold); }
@@ -411,7 +411,7 @@ body {
 .lvl-card.champion .lvl-name { color: var(--gold-hi); }
 .lvl-card.champion:hover { border-color: rgba(192,120,64,.75); }
 
-.row-lbl small { display: block; font-size: .68rem; color: var(--text-dim); margin-top: 1px; }
+.row-lbl small { display: block; font-size: .75rem; color: var(--text-dim); margin-top: 1px; }
 
 /* ---------- סרגל עליון ---------- */
 
@@ -935,7 +935,7 @@ body {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 10px 18px;
+  padding: 12px 18px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1303,7 +1303,7 @@ html[dir="rtl"] .toggle.on i { transform: translateX(-19px); }
 @media (max-height: 700px) {
   #topbar { height: 44px; }
   .title { font-size: .92rem; }
-  .ghost-btn, .stat-chip { width: 40px; height: 40px; border-radius: 11px; }
+  .ghost-btn, .stat-chip { width: 44px; height: 44px; border-radius: 13px; }
   .strip { padding: 5px 10px; margin: 2px 10px; }
   .avatar { width: 22px; height: 22px; font-size: .68rem; }
   #feedback { min-height: 52px; }
