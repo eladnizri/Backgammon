@@ -2994,16 +2994,47 @@ const APP_VERSION = "1.0.10";
     setTimeout(() => { $("#room-copy").textContent = "העתק קוד"; }, 1800);
   };
 
+  const inviteLink = code => `${location.origin}${location.pathname}?join=${code}`;
+
   $("#room-share").onclick = async () => {
     const code = $("#room-code").textContent;
-    const text = `בוא נשחק שש-בש! כנס ל-6besh.site ולחץ "הצטרף עם קוד", הקוד שלי: ${code}`;
+    const url = inviteLink(code);
+    const text = `בוא נשחק שש-בש! לחץ על הקישור ותצטרף ישר למשחק שלי 🎲`;
     if (navigator.share) {
-      try { await navigator.share({ title: "שש-בש", text }); } catch (_) {}
+      try { await navigator.share({ title: "שש-בש", text, url }); } catch (_) {}
     } else {
-      try { await navigator.clipboard.writeText(text); $("#room-share").textContent = "הועתק ✓"; setTimeout(() => { $("#room-share").textContent = "📤 שתף עם חבר"; }, 1800); }
+      try { await navigator.clipboard.writeText(`${text}\n${url}`); $("#room-share").textContent = "הועתק ✓"; setTimeout(() => { $("#room-share").textContent = "📤 שלח קישור לחבר"; }, 1800); }
       catch (_) {}
     }
   };
+
+  $("#room-link").onclick = async () => {
+    const url = inviteLink($("#room-code").textContent);
+    try { await navigator.clipboard.writeText(url); $("#room-link").textContent = "הועתק ✓"; }
+    catch (_) { $("#room-link").textContent = url; }
+    setTimeout(() => { $("#room-link").textContent = "🔗 העתק קישור"; }, 1800);
+  };
+
+  let pendingJoin = normalizeRoomCode(new URLSearchParams(location.search).get("join") || "");
+  /* ההתקנה הראשונה של ה-service worker טוענת את הדף מחדש — שומרים את הקוד כדי שלא ילך לאיבוד */
+  try {
+    if (pendingJoin) sessionStorage.setItem("pending-join", pendingJoin);
+    else pendingJoin = sessionStorage.getItem("pending-join") || "";
+  } catch (_) {}
+  if (location.search) history.replaceState(null, "", location.pathname);
+  function joinFromLink() {
+    if (pendingJoin.length !== 6) return;
+    const code = pendingJoin;
+    pendingJoin = "";
+    try { sessionStorage.removeItem("pending-join"); } catch (_) {}
+    $("#btn-online").onclick();
+    lobbyState("join");
+    $("#join-input").value = code;
+    joinRoom();
+  }
+
+  document.addEventListener("gesturestart", e => e.preventDefault());
+  document.addEventListener("touchmove", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
   /* ---------- ניווט בין מסכים ---------- */
 
@@ -3216,6 +3247,7 @@ const APP_VERSION = "1.0.10";
     Profiles.save();
     Sfx.boot();                 // המחווה הראשונה — מרשה לדפדפן להשמיע צליל
     showScreen("home");
+    joinFromLink();
   }
 
   /* ---------- ניהול פרופילים ---------- */
@@ -3619,6 +3651,7 @@ const APP_VERSION = "1.0.10";
   Game.view = Game.state;
   render();
   showScreen(Profiles.isNew ? "welcome" : "home");
+  if (!Profiles.isNew) joinFromLink();
 
   if (!Profiles.isNew && !Profiles.active().stats.coachTipSeen && Profiles.active().stats.games > 0) {
     Profiles.active().stats.coachTipSeen = true;

@@ -948,7 +948,7 @@ body {
 .sub-scroll > .pill-btn.wide,
 #lobby-host > .pill-btn.wide,
 #lobby-join > .pill-btn.wide { display: flex; width: 100%; }
-#room-share { width: 100%; justify-content: center; margin: 10px 0 4px; }
+#room-share, #room-link { width: 100%; justify-content: center; margin: 10px 0 4px; }
 .pill-btn.danger {
   margin-top: 10px;
   color: #ff9d8a;
@@ -1966,3 +1966,5 @@ body { background: var(--bg-0); }
   0%, 60%, 100% { transform: translateY(0); }
   30%           { transform: translateY(-3px); }
 }
+
+html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
