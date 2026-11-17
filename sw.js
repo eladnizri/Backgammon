@@ -1,6 +1,6 @@
 /* Service worker — מאפשר לפתוח את המשחק גם בלי אינטרנט.
    בכל עדכון: מעלים את VERSION ב-1 — זה מה שגורם לדפדפן לזהות גרסה חדשה. */
-const VERSION = "1.0.12";
+const VERSION = "1.0.13";
 const CACHE = "shesh-besh-" + VERSION;
 
 const SHELL = [
@@ -9,6 +9,7 @@ const SHELL = [
   "./style.css",
   "./js/rules.js",
   "./js/engine.js",
+  "./js/academy-levels.js",
   "./js/net.js",
   "./js/app.js",
   "./manifest.webmanifest",
