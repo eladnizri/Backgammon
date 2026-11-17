@@ -1658,6 +1658,12 @@ const APP_VERSION = "1.0.10";
       showAcademyResult();
       return;
     }
+    Game.phase = "ai";
+    render();
+    updateButtons();
+    const g = Game.gen;
+    setTimeout(() => { if (!stale(g)) aiTurn(); }, T.handoff);
+  }
   /* ---------- אימוג'י מול חבר ---------- */
 
   const EMOJIS = ["😂", "🔥", "😤", "👏", "😱", "🙏", "😎", "🤬"];
