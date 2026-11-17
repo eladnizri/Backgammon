@@ -89,6 +89,10 @@
         <svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>
         התחל משחק
       </button>
+      <button class="home-btn daily" id="btn-daily">
+        <span class="daily-ico">🧩</span>
+        <span class="daily-txt">אתגר יומי<small id="daily-sub">מצא את המהלך הטוב ביותר</small></span>
+      </button>
       <button class="home-btn" id="btn-online">
         <svg viewBox="0 0 24 24" class="stroke"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 6.2a3 3 0 0 1 0 5.6M19.4 3.6a6.5 6.5 0 0 1 0 10.8"/></svg>
         שחק עם חבר
@@ -137,6 +141,8 @@
     <div class="borne" id="borne-black"></div>
     <div class="pipbox"><b id="pip-black">167</b><span>פיפ</span></div>
     <span id="cube-ai" class="cube-display" hidden><span class="cube-display-val">2</span></span>
+    <button id="emoji-btn" type="button" aria-label="שלח אימוג'י" hidden>😀</button>
+    <div id="emoji-bar" hidden></div>
   </section>
 
   <div id="net-warn" hidden><span id="net-warn-text">אין קשר עם היריב…</span></div>

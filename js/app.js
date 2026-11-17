@@ -886,7 +886,7 @@ const APP_VERSION = "1.0.10";
     undoBtn.hidden = !(Game.prefix.length > 0 &&
       (Game.phase === "playerMove" || Game.phase === "confirm" || Game.phase === "relocate"));
     /* רמז — רק מול המחשב, כשיש לשחקן מהלך רגיל לבחור */
-    if (hintBtn) hintBtn.hidden = !(Game.mode === "cpu" && Game.phase === "playerMove");
+    if (hintBtn) hintBtn.hidden = !(Game.mode === "cpu" && Game.phase === "playerMove" && !Game.challenge);
     /* קוביית הכפלה — רק מול המחשב, במשחק רגיל, לפני ההטלה, כשיש זכות להכפיל */
     if (cubeBtn) cubeBtn.hidden = !(
       Game.mode === "cpu" && Game.variant === "regular" &&
@@ -989,6 +989,8 @@ const APP_VERSION = "1.0.10";
 
   function newGame(opts = {}) {
     Game.gen++;
+    Game.challenge = null;
+    $("#emoji-btn").hidden = Game.mode !== "online";
     Game.turkishAction = null; Game.naturalDouble = false;
     Game.state = initialState();
     Game.view = Game.state;
@@ -1320,6 +1322,8 @@ const APP_VERSION = "1.0.10";
     stopTimer();
     updateButtons();
     clearMarks();
+
+    if (Game.challenge) return finishChallenge();
 
     Stats.add("turns");
     const entry = {
@@ -1964,6 +1968,7 @@ const APP_VERSION = "1.0.10";
     const c = Game.coach;
     Game.coach = null;
     $("#coach-bar").hidden = true;
+    $("#coach-close").textContent = "המשך משחק";
     $("#dock").hidden = false;
     /* משחזרים את הלוח למצב שאחרי המהלך שלך (המהלך המקורי לא השתנה) וממשיכים */
     const r = c && c.r;
@@ -1974,6 +1979,12 @@ const APP_VERSION = "1.0.10";
       Game.diceWho = r.color;
     }
     Game.selected = null;
+    if (Game.challenge) {
+      Game.phase = "idle";
+      render(); updateButtons();
+      showChallengeResult();
+      return;
+    }
     Game.phase = "ai";
     render();
     updateButtons();
@@ -2728,6 +2739,9 @@ const APP_VERSION = "1.0.10";
     netAlive();
 
     switch (m.t) {
+      case "emoji":
+        if (EMOJIS.includes(m.e)) { flyEmoji(m.e, false); Sfx.pop && Sfx.pop(); }
+        return;
       case "hello":
         /* רק המארח מגריל, וגם אם ההודעה חוזרת פעמיים לא מתחילים משחק שני */
         Game.net.theirName = m.name || "יריב";
@@ -3036,6 +3050,194 @@ const APP_VERSION = "1.0.10";
   document.addEventListener("gesturestart", e => e.preventDefault());
   document.addEventListener("touchmove", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
+
+  /* ---------- אתגר יומי ---------- */
+
+  const todayKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const dayBefore = key => {
+    const d = new Date(key + "T12:00:00");
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  function seededRandom(seedText) {
+    let h = 2166136261;
+    for (const ch of seedText) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+    return () => {
+      h += 0x6D2B79F5;
+      let t = h;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* אותה עמדה לכל השחקנים באותו יום: משחקים מהלכים אקראיים מזרע התאריך
+     עד שמגיעים לעמדה שיש בה לפחות 4 תוצאות שונות — כלומר יש באמת מה להחליט */
+  function dailyPosition(key) {
+    const rnd = seededRandom("6besh-" + key);
+    const die = () => 1 + Math.floor(rnd() * 6);
+    for (let attempt = 0; attempt < 40; attempt++) {
+      let s = initialState();
+      let color = rnd() < 0.5 ? WHITE : BLACK;
+      const plies = 8 + Math.floor(rnd() * 14);
+      for (let i = 0; i < plies && !winner(s); i++) {
+        const finals = uniqueFinalStates(generateTurns(s, color, [die(), die()]));
+        if (finals.length) s = finals[Math.floor(rnd() * finals.length)].state;
+        color = -color;
+      }
+      if (winner(s)) continue;
+      const dice = [die(), die()];
+      if (uniqueFinalStates(generateTurns(s, WHITE, dice)).length >= 4) return { state: s, dice };
+    }
+    return { state: initialState(), dice: [3, 1] };
+  }
+
+  function dailyData() {
+    const st = Profiles.active().stats;
+    st.daily = st.daily || { last: null, streak: 0, best: 0, score: null };
+    return st.daily;
+  }
+
+  function dailyStreakNow() {
+    const d = dailyData();
+    const t = todayKey();
+    return (d.last === t || d.last === dayBefore(t)) ? d.streak : 0;
+  }
+
+  function renderDailyBtn() {
+    const d = dailyData();
+    const done = d.last === todayKey();
+    const streak = dailyStreakNow();
+    $("#daily-sub").textContent = done
+      ? `הושלם היום · ציון ${d.score} · 🔥 ${streak}`
+      : (streak ? `🔥 רצף של ${streak} ימים — אל תשבור אותו!` : "מצא את המהלך הטוב ביותר");
+    $("#btn-daily").classList.toggle("done", done);
+  }
+
+  function startChallenge() {
+    netTeardown();
+    Game.mode = "cpu";
+    Game.me = WHITE;
+    Game.silentCoach = false;
+    Game.variant = "regular";
+    Game.oppName = "המחשב";
+    layoutPoints();
+    applyStripColors();
+    setOpponentLabel("אתגר יומי", "🧩");
+    setMeLabel();
+    $("#net-warn").hidden = true;
+    $("#emoji-btn").hidden = true;
+    showScreen("game");
+
+    const key = todayKey();
+    const pos = dailyPosition(key);
+    Game.gen++;
+    stopTimer(); clearTimeout(Game.rollTimer);
+    hideToast(); hideModal(); hideSheet();
+    Game.challenge = { key, result: null };
+    Game.state = pos.state;
+    Game.view = pos.state;
+    Game.ratings = []; Game.log = []; Game.replay = null;
+    Game.coach = null; Game.lastCoach = null;
+    Game.cube = 1; Game.cubeOwner = 0;
+    Game.turnNumber = 0;
+    Game.diceUsed = [];
+    Analytics.track("daily_start");
+    $("#title-level").textContent = "אתגר יומי 🧩";
+    renderDice(true);
+    beginMoveTurn(pos.dice, Game.gen);
+    status(`🧩 יצא <b>${pos.dice[0]}-${pos.dice[1]}</b> — מצא את המהלך הכי טוב`);
+    updateButtons();
+  }
+
+  function finishChallenge() {
+    const c = Game.challenge;
+    const r = rateTurn(Game.turnStart, Game.me, Game.dice, Game.state);
+    r.turn = 1; r.dice = Game.dice.slice();
+    r.before = Game.turnStart; r.myMoves = Game.prefix.slice(); r.myAfter = Game.state; r.color = Game.me;
+    c.result = r;
+    Game.phase = "idle";
+    render();
+
+    const d = dailyData();
+    const t = todayKey();
+    c.firstToday = d.last !== t;
+    if (c.firstToday) {
+      d.streak = d.last === dayBefore(t) ? d.streak + 1 : 1;
+      d.best = Math.max(d.best || 0, d.streak);
+      d.last = t;
+      d.score = r.score;
+      Profiles.save();
+      Analytics.track("daily_done", { score: r.score, streak: d.streak });
+    }
+    r.score >= 90 ? Sfx.win() : null;
+    showToast(r);
+    setTimeout(() => { if (Game.challenge === c && Game.phase === "idle") showChallengeResult(); }, 1600);
+  }
+
+  function showChallengeResult() {
+    const c = Game.challenge;
+    if (!c || !c.result) return;
+    const r = c.result;
+    const d = dailyData();
+    const head = r.score >= 90 ? "🏆 מושלם!" : r.score >= 70 ? "👏 יפה מאוד" : r.score >= 50 ? "🙂 לא רע" : "😅 היה אפשר יותר טוב";
+    const canCoach = coachAvailable(r);
+    showModal(`
+      <h3>${head}</h3>
+      <p class="daily-score">${r.score}<span>/100</span></p>
+      <p class="daily-streak">🔥 רצף: <b>${d.streak}</b> ימים · שיא: ${d.best}</p>
+      ${c.firstToday ? "" : `<p class="note">כבר השלמת את האתגר היום — הציון הראשון נשמר (${d.score})</p>`}
+      <p class="note">אתגר חדש מחכה מחר 🧩</p>
+      ${canCoach ? `<div class="actions"><button class="pill-btn wide gold" id="m-daily-coach">🎬 הצג את המהלך הטוב ביותר</button></div>` : ""}
+      <div class="actions">
+        <button class="pill-btn wide ${canCoach ? "" : "gold"}" id="m-daily-share">📤 אתגר חבר</button>
+        <button class="pill-btn wide" id="m-daily-home">מסך הבית</button>
+      </div>`);
+    const coachBtn = $("#m-daily-coach");
+    if (coachBtn) coachBtn.onclick = () => { hideModal(); Game.lastCoach = r; openCoach(); $("#coach-close").textContent = "חזרה לתוצאה"; };
+    $("#m-daily-home").onclick = () => { Game.challenge = null; hideModal(); goHome(); renderDailyBtn(); };
+    $("#m-daily-share").onclick = async () => {
+      const text = `קיבלתי ${d.score}/100 באתגר השש-בש היומי 🧩 (רצף ${d.streak} 🔥) — נראה אותך עושה יותר טוב:`;
+      const url = location.origin + location.pathname;
+      if (navigator.share) { try { await navigator.share({ title: "אתגר שש-בש יומי", text, url }); } catch (_) {} }
+      else { try { await navigator.clipboard.writeText(`${text} ${url}`); snack("הועתק ✓"); } catch (_) {} }
+    };
+  }
+
+  $("#btn-daily").onclick = startChallenge;
+
+  /* ---------- אימוג'י מול חבר ---------- */
+
+  const EMOJIS = ["😂", "🔥", "😤", "👏", "😱", "🙏", "😎", "🤬"];
+  let lastEmojiAt = 0;
+
+  function flyEmoji(e, mine) {
+    const el = document.createElement("div");
+    el.className = "fly-emoji " + (mine ? "mine" : "theirs");
+    el.textContent = e;
+    $("#screen-game").appendChild(el);
+    setTimeout(() => el.remove(), 2200);
+  }
+
+  function buildEmojiBar() {
+    const bar = $("#emoji-bar");
+    bar.innerHTML = EMOJIS.map(e => `<button type="button">${e}</button>`).join("");
+    bar.querySelectorAll("button").forEach(b => b.onclick = () => {
+      const now = Date.now();
+      if (now - lastEmojiAt < 1200) return;
+      lastEmojiAt = now;
+      bar.hidden = true;
+      flyEmoji(b.textContent, true);
+      netSend({ t: "emoji", e: b.textContent });
+    });
+    $("#emoji-btn").onclick = () => { bar.hidden = !bar.hidden; };
+  }
+  buildEmojiBar();
+
   /* ---------- ניווט בין מסכים ---------- */
 
   const SCREENS = ["welcome", "home", "game", "stats", "online", "about"];
@@ -3044,7 +3246,7 @@ const APP_VERSION = "1.0.10";
     hideModal(); hideSheet(); hideProfiles();
     $("#dbl-bar").hidden = true;
     SCREENS.forEach(s => $("#screen-" + s).classList.toggle("on", s === name));
-    if (name === "home") renderHomeQuick();
+    if (name === "home") { renderHomeQuick(); renderDailyBtn(); }
     if (name === "stats") renderStatsScreen();
     if (name === "game") fitBoard();
   }
