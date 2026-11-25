@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.18";
+const APP_VERSION = "1.0.19";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -1706,6 +1706,8 @@ const APP_VERSION = "1.0.18";
     const chains = [];
     for (let i = 0; i < 24; i++) {
       if (i === from || isBlocked(s, i, Game.me)) continue;
+      if (Game.me === WHITE && i > from) continue;
+      if (Game.me === BLACK && i < from) continue;
       const hit = s.points[i] === -Game.me;
       chains.push({ dest: i, moves: [{ from, to: i, die: 0, relocate: true, hit }] });
     }
