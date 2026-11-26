@@ -448,7 +448,6 @@ const APP_VERSION = "1.0.28";
     level: "medium",
     hints: true,
     autoRoll: true,
-    showWinBar: true,
     startedAt: 0,
     rollTimer: null,
     turnSecs: 60,      // 0 = בלי טיימר
@@ -774,22 +773,6 @@ const APP_VERSION = "1.0.28";
     stripEls.theirs.classList.toggle("active", Game.phase === "ai" || Game.phase === "remote");
   }
 
-  function updateWinBar() {
-    const bar = $("#win-bar");
-    if (!bar) return;
-    const show = Game.showWinBar && Game.phase !== "idle" && Game.phase !== "over";
-    bar.hidden = !show;
-    if (!show) return;
-    const s = Game.state;
-    if (!s) return;
-    const p = Math.round(winProbability(s, Game.me) * 100);
-    const clamped = Math.max(5, Math.min(95, p));
-    $("#win-fill").style.width = clamped + "%";
-    const pctEl = $("#win-pct");
-    pctEl.textContent = p + "%";
-    pctEl.style.left = `calc(${clamped}% + 10px)`;
-  }
-
   const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
 
   function makeDie(value, xPct, yPct, wPct, opts = {}) {
@@ -1054,7 +1037,6 @@ const APP_VERSION = "1.0.28";
     hideToast(); hideModal(); hideSheet();
     updateAvgChip();
     updateButtons();
-    updateWinBar();
     const dealMs = dealOpening();
     const g = Game.gen;
     if (cpuStarts) {
@@ -1741,7 +1723,6 @@ const APP_VERSION = "1.0.28";
     Game.selected = null;
     updateButtons();
     render();
-    updateWinBar();
     status(Game.autoRoll ? "תורך" : "תורך — <b>הטל קוביות</b>");
     armAutoRoll();
   }
@@ -4086,14 +4067,6 @@ const APP_VERSION = "1.0.28";
     t.classList.toggle("on", Game.hints);
     t.setAttribute("aria-checked", String(Game.hints));
     render();
-  };
-
-  $("#winbar-toggle").onclick = e => {
-    const t = e.currentTarget;
-    Game.showWinBar = !Game.showWinBar;
-    t.classList.toggle("on", Game.showWinBar);
-    t.setAttribute("aria-checked", String(Game.showWinBar));
-    updateWinBar();
   };
 
   /* ---------- חיבור אירועים ---------- */
