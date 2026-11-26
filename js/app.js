@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.26";
+const APP_VERSION = "1.0.27";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -1422,7 +1422,7 @@ const APP_VERSION = "1.0.26";
       startTimer(-Game.me);
       return;
     }
-    if (Game.lastCoach) {
+    if (Game.lastCoach && !noMoves) {
       Game.pendingAiGen = g;
     } else {
       setTimeout(() => { if (!stale(g)) aiTurn(); }, noMoves ? 400 : T.handoff);
