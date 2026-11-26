@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.20";
+const APP_VERSION = "1.0.21";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -2818,6 +2818,7 @@ const APP_VERSION = "1.0.20";
         Game.net.theirName = m.name || "יריב";
         Game.net.started = true;
         Game.variant = m.variant === "turkish" ? "turkish" : "regular";
+        setEngineVariant(Game.variant);
         startOnlineGame(BLACK, m.first);
         break;
 
@@ -3040,6 +3041,7 @@ const APP_VERSION = "1.0.20";
 
   async function hostRoom() {
     Game.variant = onlineVariant;        // המארח קובע את סוג המשחק
+    setEngineVariant(Game.variant);
     const room = makeRoomCode();
     $("#room-code").textContent = room;
     $("#host-status").textContent = netConfigured()
@@ -3212,7 +3214,7 @@ const APP_VERSION = "1.0.20";
     Game.mode = "cpu";
     Game.me = WHITE;
     Game.silentCoach = false;
-    Game.variant = "regular";
+    Game.variant = "regular"; setEngineVariant("regular");
     Game.oppName = "המחשב";
     layoutPoints();
     applyStripColors();
@@ -3389,7 +3391,7 @@ const APP_VERSION = "1.0.20";
     Game.mode = "cpu";
     Game.me = WHITE;
     Game.silentCoach = false;
-    Game.variant = "regular";
+    Game.variant = "regular"; setEngineVariant("regular");
     Game.oppName = "המחשב";
     layoutPoints();
     applyStripColors();
@@ -3532,7 +3534,7 @@ const APP_VERSION = "1.0.20";
     Game.me = WHITE;
     Game.silentCoach = false;
     Game.level = level;
-    Game.variant = pendingVariant;
+    Game.variant = pendingVariant; setEngineVariant(pendingVariant);
     Game.oppName = "המחשב";
     layoutPoints();
     applyStripColors();
@@ -4138,7 +4140,7 @@ const APP_VERSION = "1.0.20";
     Tutorial, TUT_STEPS, CoachOnboard, COACH_STEPS, performSwap, showDoubleChooser,
     offerDraw, drawEnd, showDrawOfferModal,
     openCoach, closeCoach, coachShow,
-    setVariant: v => { pendingVariant = v; onlineVariant = v; Game.variant = v; },
+    setVariant: v => { pendingVariant = v; onlineVariant = v; Game.variant = v; setEngineVariant(v); },
   };
 
 })();
