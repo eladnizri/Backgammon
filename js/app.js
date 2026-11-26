@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.19";
+const APP_VERSION = "1.0.20";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -768,7 +768,7 @@ const APP_VERSION = "1.0.19";
     $("#pip-white").textContent = pipCount(s, Game.me);
     $("#pip-black").textContent = pipCount(s, -Game.me);
 
-    const myTurn = ["playerMove", "playerRoll", "rolling", "auto", "blocked", "confirm"].includes(Game.phase);
+    const myTurn = ["playerMove", "playerRoll", "rolling", "auto", "blocked", "confirm", "cubeWait", "cubeOffer"].includes(Game.phase);
     stripEls.mine.classList.toggle("active", myTurn);
     stripEls.theirs.classList.toggle("active", Game.phase === "ai" || Game.phase === "remote");
   }
@@ -887,9 +887,9 @@ const APP_VERSION = "1.0.19";
       (Game.phase === "playerMove" || Game.phase === "confirm" || Game.phase === "relocate"));
     /* רמז — רק מול המחשב, כשיש לשחקן מהלך רגיל לבחור */
     if (hintBtn) hintBtn.hidden = !(Game.mode === "cpu" && Game.phase === "playerMove" && !Game.challenge && !Game.academy);
-    /* קוביית הכפלה — רק מול המחשב, במשחק רגיל, לפני ההטלה, כשיש זכות להכפיל */
+    /* קוביית הכפלה — במשחק רגיל, לפני ההטלה, כשיש זכות להכפיל */
     if (cubeBtn) cubeBtn.hidden = !(
-      Game.mode === "cpu" && Game.variant === "regular" &&
+      Game.variant === "regular" &&
       Game.phase === "playerRoll" &&
       (Game.cubeOwner === 0 || Game.cubeOwner === Game.me) &&
       Game.cube < 64
@@ -902,7 +902,7 @@ const APP_VERSION = "1.0.19";
   function updateCubeDisplay() {
     const meEl = $("#cube-me"), aiEl = $("#cube-ai");
     if (!meEl || !aiEl) return;
-    if (Game.cube <= 1 || Game.variant === "turkish" || Game.mode === "online") {
+    if (Game.cube <= 1 || Game.variant === "turkish") {
       meEl.hidden = true; aiEl.hidden = true; return;
     }
     const myOwn = Game.cubeOwner === Game.me;
@@ -914,11 +914,20 @@ const APP_VERSION = "1.0.19";
   }
 
   function playerDouble() {
-    if (Game.phase !== "playerRoll" || Game.mode !== "cpu" || Game.variant !== "regular") return;
+    if (Game.phase !== "playerRoll" || Game.variant !== "regular") return;
     if (Game.cubeOwner !== 0 && Game.cubeOwner !== Game.me) return;
     if (Game.cube >= 64) return;
 
     const newVal = Game.cube * 2;
+
+    if (Game.mode === "online") {
+      netSend({ t: "double" });
+      Game.phase = "cubeWait";
+      status(`הצעת להכפיל ל-${newVal} — ממתין לתגובת ${Game.oppName}…`);
+      updateButtons(); render();
+      return;
+    }
+
     const decision = shouldDouble(Game.state, -Game.me);
 
     if (!decision.shouldTake) {
@@ -961,6 +970,12 @@ const APP_VERSION = "1.0.19";
     cubeOfferEl.hidden = true;
     Sfx.place();
     status(`קיבלת — ההכפלה עומדת על ×${Game.cube}`);
+    if (Game.mode === "online") {
+      netSend({ t: "double-take" });
+      Game.phase = "remote";
+      updateButtons(); render();
+      return;
+    }
     Game.phase = "ai";
     updateButtons();
     render();
@@ -972,6 +987,13 @@ const APP_VERSION = "1.0.19";
     if (!Game.cubeOffered) return;
     Game.cubeOffered = false;
     cubeOfferEl.hidden = true;
+    if (Game.mode === "online") {
+      netSend({ t: "double-drop" });
+      status(`סירבת להכפלה — ${Game.oppName} ניצח`);
+      Sfx.lose();
+      setTimeout(() => gameOver(-Game.me, "cube-drop"), 600);
+      return;
+    }
     status(`סירבת להכפלה — ${Game.oppName} ניצח`);
     Sfx.lose();
     setTimeout(() => gameOver(-Game.me, "cube-drop"), 600);
@@ -2618,7 +2640,7 @@ const APP_VERSION = "1.0.19";
   /* ---------- פרישה ---------- */
 
   function resign() {
-    if (!["playerMove", "playerRoll", "ai", "remote", "rolling", "auto", "blocked", "confirm"].includes(Game.phase)) return;
+    if (!["playerMove", "playerRoll", "ai", "remote", "rolling", "auto", "blocked", "confirm", "cubeWait", "cubeOffer"].includes(Game.phase)) return;
     inlineConfirm($("#sheet-resign"), "לפרוש? ההפסד ייספר.", () => {
       hideSheet();
       if (Game.mode === "online") netSend({ t: "resign" });
@@ -2832,6 +2854,38 @@ const APP_VERSION = "1.0.19";
         });
         break;
       }
+
+      /* היריב מציע להכפיל — מציגים דיאלוג קבל/סרב */
+      case "double": {
+        if (Game.phase !== "remote" || Game.variant !== "regular") return;
+        const newVal = Game.cube * 2;
+        Game.cubeOffered = true;
+        Game.phase = "cubeOffer";
+        cubeOfferEl.hidden = false;
+        $("#cube-offer-val").textContent = newVal;
+        $("#cube-offer-text").innerHTML = `${Game.oppName} מציע להכפיל ל-<b>${newVal}</b>`;
+        updateButtons(); render();
+        break;
+      }
+
+      /* היריב קיבל את ההכפלה — ההכפלה תקפה, התור שלי להטיל */
+      case "double-take":
+        if (Game.phase !== "cubeWait") return;
+        Game.cube *= 2;
+        Game.cubeOwner = -Game.me;
+        Game.phase = "playerRoll";
+        Sfx.place();
+        status(`${Game.oppName} מקבל — ההכפלה עומדת על ×${Game.cube}`);
+        updateButtons(); render();
+        break;
+
+      /* היריב סירב להכפלה — אנחנו ניצחנו */
+      case "double-drop":
+        if (Game.phase !== "cubeWait") return;
+        status(`${Game.oppName} סירב להכפלה — ניצחת!`);
+        Sfx.win();
+        setTimeout(() => gameOver(Game.me, "cube-drop"), 600);
+        break;
 
       case "resign":
         if (Game.net.started && Game.phase !== "over") gameOver(Game.me, "resign");
