@@ -517,6 +517,12 @@ function summarizeRatings(ratings) {
 /* ==========================================================================
    קוביית הכפלה — החלטת AI: האם להכפיל, והאם לקבל הכפלה
    ========================================================================== */
+function winProbability(state, color) {
+  const ev = evaluate(state, color);
+  if (_variant === "turkish") return 1 / (1 + Math.exp(-3.5 * ev));
+  return 1 / (1 + Math.exp(-1.4 * ev));
+}
+
 function shouldDouble(state, color) {
   const ev = evaluate(state, color);
   if (_variant === "turkish") {

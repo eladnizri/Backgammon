@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.25";
+const APP_VERSION = "1.0.26";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -448,6 +448,7 @@ const APP_VERSION = "1.0.25";
     level: "medium",
     hints: true,
     autoRoll: true,
+    showWinBar: true,
     startedAt: 0,
     rollTimer: null,
     turnSecs: 60,      // 0 = בלי טיימר
@@ -771,6 +772,21 @@ const APP_VERSION = "1.0.25";
     const myTurn = ["playerMove", "playerRoll", "rolling", "auto", "blocked", "confirm", "cubeWait", "cubeOffer"].includes(Game.phase);
     stripEls.mine.classList.toggle("active", myTurn);
     stripEls.theirs.classList.toggle("active", Game.phase === "ai" || Game.phase === "remote");
+    updateWinBar(s);
+  }
+
+  function updateWinBar(s) {
+    const bar = $("#win-bar");
+    if (!bar) return;
+    const show = Game.showWinBar && Game.phase !== "idle" && Game.phase !== "over";
+    bar.hidden = !show;
+    if (!show) return;
+    const p = Math.round(winProbability(s, Game.me) * 100);
+    const clamped = Math.max(5, Math.min(95, p));
+    $("#win-fill").style.width = clamped + "%";
+    const pctEl = $("#win-pct");
+    pctEl.textContent = p + "%";
+    pctEl.style.left = `calc(${clamped}% + 10px)`;
   }
 
   const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
@@ -4067,6 +4083,14 @@ const APP_VERSION = "1.0.25";
     t.classList.toggle("on", Game.hints);
     t.setAttribute("aria-checked", String(Game.hints));
     render();
+  };
+
+  $("#winbar-toggle").onclick = e => {
+    const t = e.currentTarget;
+    Game.showWinBar = !Game.showWinBar;
+    t.classList.toggle("on", Game.showWinBar);
+    t.setAttribute("aria-checked", String(Game.showWinBar));
+    if (Game.state) updateWinBar(Game.state);
   };
 
   /* ---------- חיבור אירועים ---------- */

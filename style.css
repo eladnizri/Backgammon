@@ -557,6 +557,47 @@ body {
 .pipbox b { display: block; font-size: .95rem; font-weight: 800; letter-spacing: -.02em; }
 .pipbox span { font-size: .64rem; letter-spacing: .08em; color: var(--text-dim); }
 
+/* ---------- פס אחוזי ניצחון ---------- */
+
+#win-bar {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  height: 18px;
+  margin: 0 auto;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+#win-bar::before {
+  content: "";
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,.12);
+  position: absolute;
+  inset: 6px 10px auto 10px;
+}
+#win-fill {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  height: 6px;
+  width: 50%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold-hi), var(--gold-dim));
+  transition: width .6s var(--ease);
+}
+#win-pct {
+  position: absolute;
+  top: -1px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold-hi);
+  transition: left .6s var(--ease);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 /* ---------- הלוח ---------- */
 
 #board-area {
@@ -1264,6 +1305,7 @@ html[dir="rtl"] .toggle.on i { transform: translateX(-19px); }
   .strip { max-width: 940px; width: 100%; margin-inline: auto; padding: 9px 16px; }
   #board-area { padding: 8px 14px; }
   #board { max-width: 940px; }
+  #win-bar { max-width: 940px; }
   #status-text { font-size: .9rem; }
 }
 
@@ -1289,6 +1331,7 @@ html[dir="rtl"] .toggle.on i { transform: translateX(-19px); }
 
   .title { font-size: .85rem; }
   .title-sub { display: none; }
+  #win-bar { display: none; }
   .strip { margin: 2px 0; padding: 5px 9px; flex-wrap: wrap; row-gap: 5px; }
   .borne { flex-basis: 100%; order: 3; height: 12px; }
   .borne i { height: 5px; }
