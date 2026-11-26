@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.27";
+const APP_VERSION = "1.0.28";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -772,15 +772,16 @@ const APP_VERSION = "1.0.27";
     const myTurn = ["playerMove", "playerRoll", "rolling", "auto", "blocked", "confirm", "cubeWait", "cubeOffer"].includes(Game.phase);
     stripEls.mine.classList.toggle("active", myTurn);
     stripEls.theirs.classList.toggle("active", Game.phase === "ai" || Game.phase === "remote");
-    updateWinBar(s);
   }
 
-  function updateWinBar(s) {
+  function updateWinBar() {
     const bar = $("#win-bar");
     if (!bar) return;
     const show = Game.showWinBar && Game.phase !== "idle" && Game.phase !== "over";
     bar.hidden = !show;
     if (!show) return;
+    const s = Game.state;
+    if (!s) return;
     const p = Math.round(winProbability(s, Game.me) * 100);
     const clamped = Math.max(5, Math.min(95, p));
     $("#win-fill").style.width = clamped + "%";
@@ -1053,6 +1054,7 @@ const APP_VERSION = "1.0.27";
     hideToast(); hideModal(); hideSheet();
     updateAvgChip();
     updateButtons();
+    updateWinBar();
     const dealMs = dealOpening();
     const g = Game.gen;
     if (cpuStarts) {
@@ -1739,6 +1741,7 @@ const APP_VERSION = "1.0.27";
     Game.selected = null;
     updateButtons();
     render();
+    updateWinBar();
     status(Game.autoRoll ? "תורך" : "תורך — <b>הטל קוביות</b>");
     armAutoRoll();
   }
@@ -4090,7 +4093,7 @@ const APP_VERSION = "1.0.27";
     Game.showWinBar = !Game.showWinBar;
     t.classList.toggle("on", Game.showWinBar);
     t.setAttribute("aria-checked", String(Game.showWinBar));
-    if (Game.state) updateWinBar(Game.state);
+    updateWinBar();
   };
 
   /* ---------- חיבור אירועים ---------- */
