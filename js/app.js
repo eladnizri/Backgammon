@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.21";
+const APP_VERSION = "1.0.22";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -1402,7 +1402,11 @@ const APP_VERSION = "1.0.21";
       startTimer(-Game.me);
       return;
     }
-    setTimeout(() => { if (!stale(g)) aiTurn(); }, noMoves ? 400 : T.handoff);
+    if (Game.lastCoach) {
+      Game.pendingAiGen = g;
+    } else {
+      setTimeout(() => { if (!stale(g)) aiTurn(); }, noMoves ? 400 : T.handoff);
+    }
   }
 
   /* מריץ תור של הצד השני — בין אם המחשב בחר אותו ובין אם הגיע מהרשת.
@@ -1859,6 +1863,11 @@ const APP_VERSION = "1.0.21";
     clearTimeout(Game.toastTimer);
     ratingEl.hidden = true;
     statusEl.hidden = false;
+    if (Game.pendingAiGen != null) {
+      const g = Game.pendingAiGen;
+      Game.pendingAiGen = null;
+      if (!stale(g)) setTimeout(() => { if (!stale(g)) aiTurn(); }, T.handoff);
+    }
   }
 
   /* ---------- רמז ----------
@@ -1955,7 +1964,8 @@ const APP_VERSION = "1.0.21";
     const r = Game.lastCoach;
     if (!r || Game.mode !== "cpu" || Game.phase === "coach") return;
     Analytics.track("coach_opened");
-    Game.gen++;                       // עוצר תור מחשב ממתין או רץ
+    Game.pendingAiGen = null;
+    Game.gen++;
     stopTimer();
     clearTimeout(Game.rollTimer);
     hideToast();
