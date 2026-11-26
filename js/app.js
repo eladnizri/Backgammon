@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.24";
+const APP_VERSION = "1.0.25";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -874,7 +874,7 @@ const APP_VERSION = "1.0.24";
     const hit = m.hit ? " ✕" : "";
     if (m.from === "bar") return `כניסה ל־${m.to + 1}${hit}`;
     if (m.to === "off") return `הורדה מ־${m.from + 1}`;
-    return `<span dir="ltr">${m.from + 1}→${m.to + 1}</span>${hit}`;
+    return `<bdi dir="ltr">${m.from + 1}→${m.to + 1}</bdi>${hit}`;
   }
   const movesHtml = ms => ms.map(moveHtml).join(" · ");
 
@@ -1020,7 +1020,7 @@ const APP_VERSION = "1.0.24";
     Game.ratings = []; Game.log = []; Game.replay = null;
     Game.coach = null; Game.lastCoach = null;
     Game.aiScores = [];
-    Game.hintCount = 0; Game.hintMove = null;
+    Game.hintCount = 0; Game.hintMove = null; Game.bearOffHinted = false;
     Game.cube = 1; Game.cubeOwner = 0; Game.cubeOffered = false;
     Game.turnNumber = 0;
     Game.dice = []; Game.diceWho = null; Game.diceUsed = [];
@@ -1103,6 +1103,10 @@ const APP_VERSION = "1.0.24";
     Game.turnsResult = generateTurns(Game.state, Game.me, dice);
     Game.phase = "playerMove";
     refreshOptions();
+    if (allInHome(Game.state, Game.me) && !Game.bearOffHinted) {
+      Game.bearOffHinted = true;
+      snack("כל החיילים בבית! לחץ על חייל ואז על מגש ההורדה");
+    }
 
     if (Game.turnsResult.maxLen === 0) {
       Game.phase = "blocked";
@@ -1947,7 +1951,7 @@ const APP_VERSION = "1.0.24";
     if (n > 10) msg = "שמע יש לך מזל שלא עשיתי הגבלה 😅";
     else if (n > 5) msg = "עם כל העזרה הזאת עדיף תשחק דמקה 🙃";
     else if (n > 3) msg = "אח שלי הגזמת, שחק קצת לבד 💪";
-    if (msg) snack(msg);
+    if (msg) setTimeout(() => snack(msg), 2500);
   }
 
   /* ---------- אישור inline (תחליף ל-confirm) ---------- */
@@ -2215,7 +2219,7 @@ const APP_VERSION = "1.0.24";
           <span class="h2h-side"><b>${pts.pa}</b>${escapeHtml(Game.oppName)}</span>
         </div>
         <p class="h2h-games" dir="ltr">${r.rec.w}–${r.rec.l} משחקים</p>`; })() : ""}
-      ${summaryHtml(r.sum)}
+      ${r.won || r.draw ? summaryHtml(r.sum) : (r.sum.count ? `<details class="loss-stats"><summary>פירוט ביצועים</summary>${summaryHtml(r.sum)}</details>` : '')}
       <div class="actions">
         <button class="pill-btn wide gold" id="m-again">משחק חוזר</button>
         <button class="pill-btn wide" id="m-home">${r.online ? "יציאה ללובי" : "מסך הבית"}</button>
@@ -3978,6 +3982,7 @@ const APP_VERSION = "1.0.24";
   /* ---------- גיליון הגדרות ---------- */
 
   function showSheet() {
+    if (Game.phase === "cubeWait" || Game.phase === "cubeOffer") return;
     /* "הצע תיקו" רלוונטי רק במשחק פעיל מול חבר */
     $("#sheet-draw").hidden = !canOfferDraw();
     /* "משחק חדש" ו"פרוש" רלוונטיים רק כשמשחק פעיל */

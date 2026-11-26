@@ -522,5 +522,10 @@ function shouldDouble(state, color) {
   if (_variant === "turkish") {
     return { shouldDouble: ev > 0.12, shouldTake: ev > -0.35 };
   }
+  if (isRace(state)) {
+    const myPips = pipCount(state, color);
+    const oppPips = pipCount(state, -color);
+    if (myPips >= oppPips - 8) return { shouldDouble: false, shouldTake: ev > -1.5 };
+  }
   return { shouldDouble: ev > 0.5, shouldTake: ev > -1.5 };
 }

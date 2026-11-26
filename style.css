@@ -1109,6 +1109,10 @@ body {
   animation: sheet-up 300ms var(--ease);
 }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+.sheet { scrollbar-color: var(--surface-2) transparent; }
+.sheet::-webkit-scrollbar { width: 6px; }
+.sheet::-webkit-scrollbar-track { background: transparent; }
+.sheet::-webkit-scrollbar-thumb { background: var(--surface-2); border-radius: 3px; }
 .grabber { width: 38px; height: 4px; border-radius: 99px; background: var(--surface-2); margin: 0 auto 14px; }
 .sheet h3 { margin: 0 0 14px; font-size: 1rem; font-weight: 700; }
 
@@ -1149,7 +1153,7 @@ body {
   width: 46px; height: 27px;
   border-radius: 99px;
   border: 1px solid var(--line);
-  background: rgba(0,0,0,.4);
+  background: rgba(60,60,70,.5);
   cursor: pointer;
   padding: 0;
   position: relative;
@@ -1222,6 +1226,8 @@ html[dir="rtl"] .toggle.on i { transform: translateX(-19px); }
 #modal .overall .num { font-size: 2.1rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 #modal .overall .lbl { font-size: .58rem; letter-spacing: .14em; color: var(--text-dim); margin-top: 3px; }
 #modal .overall-grade { font-weight: 700; font-size: 1rem; color: var(--grade, #ccc); margin-bottom: 12px; }
+.loss-stats { margin: 10px 0; }
+.loss-stats summary { cursor: pointer; color: var(--text-dim); font-size: .88rem; padding: 8px 0; }
 
 #modal .dist { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 12px 0 6px; }
 #modal .dist .chip {
