@@ -538,11 +538,16 @@
 
 <div id="snack" hidden></div>
 
-<!-- כפתור עדכון — מופיע כשיש גרסה חדשה -->
-<button id="update-btn" hidden aria-label="עדכון זמין — לחץ לרענון">
-  <span class="update-ico">↑</span>
-  <span class="update-lbl">עדכון זמין</span>
-</button>
+<!-- מודל עדכון — מופיע כשיש גרסה חדשה -->
+<div id="update-modal" hidden role="dialog" aria-modal="true" aria-labelledby="update-modal-title">
+  <div id="update-card">
+    <div class="update-icon">🚀</div>
+    <h2 id="update-modal-title">עדכון זמין!</h2>
+    <p>גרסה חדשה של האפליקציה מוכנה.<br>עדכן עכשיו לחוויה טובה יותר.</p>
+    <button id="update-btn" aria-label="עדכן עכשיו">עדכן עכשיו</button>
+    <button id="update-later">אחר כך</button>
+  </div>
+</div>
 
 <script src="js/rules.js"></script>
 <script src="js/engine.js"></script>

@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.22";
+const APP_VERSION = "1.0.23";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -4081,14 +4081,17 @@ const APP_VERSION = "1.0.22";
       try {
         const reg = await navigator.serviceWorker.register("sw.js");
 
-        const updateBtn = $("#update-btn");
+        const updateModal = $("#update-modal");
+        const updateBtn   = $("#update-btn");
+        const updateLater = $("#update-later");
 
         function showUpdateBtn(worker) {
-          if (!updateBtn) return;
-          updateBtn.hidden = false;
+          if (!updateModal) return;
+          updateModal.hidden = false;
           updateBtn.onclick = () => {
             worker.postMessage("SKIP_WAITING");
           };
+          if (updateLater) updateLater.onclick = () => { updateModal.hidden = true; };
         }
 
         /* SW חדש כבר ממתין (רענון ידני של הדף שלאחר עדכון) */
