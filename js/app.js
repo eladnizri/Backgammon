@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "1.0.23";
+const APP_VERSION = "1.0.24";
 
 /* ==========================================================================
    app.js — ממשק המשתמש ובקרת המשחק.
@@ -1489,9 +1489,29 @@ const APP_VERSION = "1.0.23";
     return choice.moves;
   }
 
+  /* בדיקה אם שחקן חסום לגמרי — על הבר וכל 6 נקודות הכניסה תפוסות */
+  function isFullyWalled(s, c) {
+    if (s.bar[c] === 0) return false;
+    for (let die = 1; die <= 6; die++) {
+      const dest = c === WHITE ? 24 - die : die - 1;
+      if (!isBlocked(s, dest, c)) return false;
+    }
+    return true;
+  }
+
   async function aiTurn() {
     if (aiOfferDouble()) return;
     const g = Game.gen;
+
+    /* היריב חסום לחלוטין — דילוג על הטלה */
+    if (isFullyWalled(Game.state, -Game.me)) {
+      Game.phase = "ai";
+      status(`${Game.oppName} חסום — אין לו כניסה מהבר`);
+      await delay(800);
+      if (!stale(g)) playerRollPhase();
+      return;
+    }
+
     const dice = [d6(), d6()];
 
     if (Game.variant === "turkish") {
@@ -1676,6 +1696,25 @@ const APP_VERSION = "1.0.23";
   }
 
   function playerRollPhase() {
+    /* אני חסום לחלוטין — דילוג אוטומטי על התור */
+    if (isFullyWalled(Game.state, Game.me)) {
+      const g = Game.gen;
+      Game.phase = "blocked";
+      Game.selected = null;
+      updateButtons();
+      render();
+      status("אתה חסום — אין לך כניסה מהבר");
+      setTimeout(() => {
+        if (!stale(g)) {
+          if (Game.mode === "online") {
+            status("ממתין ליריב…");
+          } else {
+            aiTurn();
+          }
+        }
+      }, 800);
+      return;
+    }
     Game.phase = "playerRoll";
     Game.selected = null;
     updateButtons();
